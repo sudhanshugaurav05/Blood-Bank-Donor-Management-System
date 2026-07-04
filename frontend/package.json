@@ -1,12 +1,15 @@
 {
   "name": "blood-bank-frontend",
   "version": "1.0.0",
+  "homepage": "https://sudhanshugaurav05.github.io/blood-bank-donor-management-system",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -17,6 +20,7 @@
     "react-router-dom": "^6.28.0"
   },
   "devDependencies": {
+    "gh-pages": "^6.3.0",
     "vite": "latest"
   }
 }
