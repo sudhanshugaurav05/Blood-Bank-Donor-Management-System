@@ -8,7 +8,9 @@ import "./styles/index.css";
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter basename="/Blood-Bank-Donor-Management-System">
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </BrowserRouter>
-  </React.StrictMode>,
+  </React.StrictMode>
 );
