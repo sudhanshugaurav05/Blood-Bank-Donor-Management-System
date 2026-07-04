@@ -4,7 +4,7 @@ import { protect, allowRoles } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.get("/", async (req, res) => {
+router.get("/", protect, async (req, res) => {
   try {
     const { bloodGroup, city } = req.query;
 
@@ -29,13 +29,17 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", protect, async (req, res) => {
   try {
     const donor = await User.findOne({
       _id: req.params.id,
       role: "donor",
     }).select("-password");
-    if (!donor) return res.status(404).json({ message: "Donor not found." });
+
+    if (!donor) {
+      return res.status(404).json({ message: "Donor not found." });
+    }
+
     return res.json({ donor });
   } catch (error) {
     return res
@@ -64,17 +68,20 @@ router.put(
       ];
 
       allowedFields.forEach((field) => {
-        if (req.body[field] !== undefined) req.user[field] = req.body[field];
+        if (req.body[field] !== undefined) {
+          req.user[field] = req.body[field];
+        }
       });
 
       const updatedUser = await req.user.save();
-      return res.json({ user: updatedUser });
+
+      return res.json({ user: updatedUser.toSafeObject() });
     } catch (error) {
-      return res
-        .status(500)
-        .json({ message: error.message || "Failed to update donor profile." });
+      return res.status(500).json({
+        message: error.message || "Failed to update donor profile.",
+      });
     }
-  },
+  }
 );
 
 export default router;

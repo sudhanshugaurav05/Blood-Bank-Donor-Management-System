@@ -77,7 +77,9 @@ function App() {
 
       <Footer />
 
+       
       <ChatBot />
+     
     </div>
   );
 }

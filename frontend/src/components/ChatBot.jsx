@@ -18,38 +18,55 @@ function getBloodGroupFromText(text) {
   return bloodGroups.find((group) => cleanText.includes(group));
 }
 
+function getAuthToken() {
+  return (
+    localStorage.getItem("token") ||
+    localStorage.getItem("lifedropToken") ||
+    localStorage.getItem("bloodBankToken") ||
+    localStorage.getItem("authToken")
+  );
+}
+
 function getLocalReply(message) {
   const text = message.toLowerCase();
 
-  if (text.includes("register")) {
-    return "To register, click Register, choose Donor or Patient, fill details, and create your account.";
+  if (
+    text.includes("register") ||
+    text.includes("signup") ||
+    text.includes("sign up")
+  ) {
+    return "To register, click the Register button, choose Donor or Patient, fill your name, email, password, phone, blood group and city, then submit the form.";
   }
 
   if (text.includes("login")) {
-    return "Click Login, enter your email and password, then you will go to your dashboard.";
+    return "To login, click Login, enter your registered email or admin username and password, then you will be redirected based on your role.";
   }
 
-  if (text.includes("donate")) {
-    return "To donate blood, register as a Donor. After login, keep your availability active.";
+  if (text.includes("donate") || text.includes("donation")) {
+    return "To donate blood, first register as a Donor. After login, open the Donate page and update your availability and donation details.";
   }
 
   if (text.includes("need blood") || text.includes("request")) {
-    return "To request blood, register as a Patient, login, then open Need Blood page.";
+    return "If you need blood, register as a Patient. After login, open the Need Blood page and submit your blood group, hospital, city and contact details.";
   }
 
   if (text.includes("emergency") || text.includes("urgent")) {
-    return "For emergency, submit a blood request and contact your nearest hospital immediately.";
+    return "For emergency blood need, submit a blood request after login and also contact your nearest hospital or blood bank immediately.";
   }
 
   if (text.includes("help") || text.includes("support")) {
-    return "Open Help & Support page and submit your message.";
+    return "You can use the Help & Support page after login to send your query or issue to the support team.";
   }
 
-  if (text.includes("hi") || text.includes("hello")) {
-    return "Hello! I am LifeDrop Assistant. You can ask me about donors, blood request, registration, or donation.";
+  if (text.includes("eligible") || text.includes("eligibility")) {
+    return "Basic donor eligibility: age 18+, healthy condition, proper weight, and no recent major illness. Always consult a doctor or blood bank staff before donating.";
   }
 
-  return "I can help with registration, donor search, blood request, donation process, and emergency help.";
+  if (text.includes("hi") || text.includes("hello") || text.includes("hey")) {
+    return "Hello! I am LifeDrop Assistant. I can help you with registration, login, blood donation, blood request and emergency guidance.";
+  }
+
+  return "I can help with registration, login, blood donation process, blood request process, emergency help and support guidance.";
 }
 
 export default function ChatBot() {
@@ -68,9 +85,24 @@ export default function ChatBot() {
   };
 
   const findDonors = async (bloodGroup) => {
+    const token = getAuthToken();
+
+    if (!token) {
+      return "Please login first to search available donors. You can still ask me how to register, how to login, how to donate, or how to request blood.";
+    }
+
     try {
-      const response = await fetch(`${API_BASE_URL}/donors`);
+      const response = await fetch(`${API_BASE_URL}/donors`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       const data = await response.json();
+
+      if (!response.ok) {
+        return data.message || "Please login again to search donors.";
+      }
 
       const donors = data.donors || data || [];
 
@@ -101,7 +133,7 @@ export default function ChatBot() {
         ? `Available ${bloodGroup} donors:\n${donorList}`
         : `Available donors:\n${donorList}`;
     } catch (error) {
-      return "Unable to connect with backend. Please make sure backend is running on port 5001.";
+      return "Unable to connect with backend. Please make sure backend is running or deployed correctly.";
     }
   };
 
@@ -109,12 +141,15 @@ export default function ChatBot() {
     const lowerText = messageText.toLowerCase();
     const bloodGroup = getBloodGroupFromText(messageText);
 
-    if (
+    const isDonorSearch =
       lowerText.includes("find") ||
-      lowerText.includes("available") ||
-      lowerText.includes("donor") ||
-      bloodGroup
-    ) {
+      lowerText.includes("available donor") ||
+      lowerText.includes("show donor") ||
+      lowerText.includes("donor list") ||
+      lowerText.includes("donors near") ||
+      bloodGroup;
+
+    if (isDonorSearch) {
       return await findDonors(bloodGroup);
     }
 
@@ -152,6 +187,7 @@ export default function ChatBot() {
               <h3>LifeDrop Assistant</h3>
               <p>Online blood support</p>
             </div>
+
             <button type="button" onClick={() => setIsOpen(false)}>
               ×
             </button>
@@ -198,6 +234,7 @@ export default function ChatBot() {
               value={input}
               onChange={(event) => setInput(event.target.value)}
             />
+
             <button type="submit">Send</button>
           </form>
         </div>

@@ -42,7 +42,7 @@ router.post("/", protect, allowRoles("patient"), async (req, res) => {
   }
 });
 
-router.get("/", async (req, res) => {
+router.get("/", protect, async (req, res) => {
   try {
     const { bloodGroup, city } = req.query;
     const filter = { isOpen: true };
