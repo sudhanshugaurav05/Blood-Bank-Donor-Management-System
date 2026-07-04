@@ -1,4 +1,5 @@
 import { useState } from "react";
+import api from "../api/axios.js";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
@@ -85,26 +86,11 @@ export default function ChatBot() {
   };
 
   const findDonors = async (bloodGroup) => {
-    const token = getAuthToken();
-
-    if (!token) {
-      return "Please login first to search available donors. You can still ask me how to register, how to login, how to donate, or how to request blood.";
-    }
-
     try {
-      const response = await fetch(`${API_BASE_URL}/donors`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.get("/donors");
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        return data.message || "Please login again to search donors.";
-      }
-
-      const donors = data.donors || data || [];
+      const donors = data.donors || [];
 
       if (!Array.isArray(donors)) {
         return "Sorry, donor data format is not correct.";
@@ -125,7 +111,7 @@ export default function ChatBot() {
         .slice(0, 5)
         .map(
           (donor, index) =>
-            `${index + 1}. ${donor.name} - ${donor.bloodGroup}, ${donor.city}, Phone: ${donor.phone}`
+            `${index + 1}. ${donor.name} - ${donor.bloodGroup}, ${donor.city}, Phone: ${donor.phone}`,
         )
         .join("\n");
 
@@ -133,7 +119,14 @@ export default function ChatBot() {
         ? `Available ${bloodGroup} donors:\n${donorList}`
         : `Available donors:\n${donorList}`;
     } catch (error) {
-      return "Unable to connect with backend. Please make sure backend is running or deployed correctly.";
+      if (error.response?.status === 401) {
+        return "Please login first to search available donors.";
+      }
+
+      return (
+        error.response?.data?.message ||
+        "Unable to load donors right now. Please try again later."
+      );
     }
   };
 
