@@ -1,10 +1,11 @@
+
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-export default defineConfig(({ mode }) => ({
+const isAndroidBuild = process.env.VITE_BUILD_TARGET === "android";
+
+export default defineConfig({
   plugins: [react()],
-  base:
-    mode === "android"
-      ? "./"
-      : "/Blood-Bank-Donor-Management-System/",
-}));
+  base: isAndroidBuild ? "./" : "/Blood-Bank-Donor-Management-System/",
+});
