@@ -1,7 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  base: "/Blood-Bank-Donor-Management-System/",
-});
+  base:
+    mode === "android"
+      ? "./"
+      : "/Blood-Bank-Donor-Management-System/",
+}));
