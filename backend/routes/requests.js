@@ -1,8 +1,11 @@
 import express from "express";
 import BloodRequest from "../models/BloodRequest.js";
 import { protect, allowRoles } from "../middleware/auth.js";
-import User from "../models/User.js";
-import { sendPatientDonorMatchEmail } from "../utils/sendMail.js";
+import {
+  sendPatientDonorMatchEmail,
+  sendPatientDonorAcceptedEmail,
+} from "../utils/sendMail.js";
+import { findBestMatchingDonors } from "../utils/matchingEngine.js";
 
 const router = express.Router();
 
@@ -30,7 +33,6 @@ router.post("/", protect, allowRoles("patient"), async (req, res) => {
 
     const normalizedBloodGroup = bloodGroup.trim().toUpperCase();
     const normalizedCity = city.trim();
-    const cityRegex = new RegExp(`^${escapeRegex(normalizedCity)}$`, "i");
 
     const request = await BloodRequest.create({
       patient: req.user._id,
@@ -42,22 +44,26 @@ router.post("/", protect, allowRoles("patient"), async (req, res) => {
       urgency,
       contactNumber,
       message,
+      status: "pending",
     });
 
-    const matchingDonors = await User.find({
-      role: "donor",
+    const matchingDonors = await findBestMatchingDonors({
       bloodGroup: normalizedBloodGroup,
-      city: cityRegex,
-      isAvailable: true,
-      $or: [
-        { "eligibility.isEligible": true },
-        { eligibility: { $exists: false } },
-        { "eligibility.isEligible": { $exists: false } },
-      ],
-    })
-      .select("-password")
-      .sort({ createdAt: -1 })
-      .limit(5);
+      city: normalizedCity,
+      limit: 5,
+    });
+
+    if (matchingDonors.length > 0) {
+      request.status = "donor_found";
+
+      request.matchedDonors = matchingDonors.map((donor) => ({
+        donor: donor._id,
+        status: "pending",
+        matchedAt: new Date(),
+      }));
+
+      await request.save();
+    }
 
     console.log("Patient email:", req.user.email);
     console.log("Requested blood group:", normalizedBloodGroup);
@@ -89,7 +95,7 @@ router.post("/", protect, allowRoles("patient"), async (req, res) => {
       message:
         matchingDonors.length > 0
           ? emailSent
-            ? "Blood request created. Matching donor details sent to your email."
+            ? "Blood request created. Matching donors found and email sent."
             : "Blood request created. Matching donors found, but email could not be sent."
           : "Blood request created. No matching donor found right now.",
     });
@@ -97,6 +103,51 @@ router.post("/", protect, allowRoles("patient"), async (req, res) => {
     return res
       .status(500)
       .json({ message: error.message || "Failed to create blood request." });
+  }
+});
+
+router.get(
+  "/matched-for-me",
+  protect,
+  allowRoles("donor"),
+  async (req, res) => {
+    try {
+      const requests = await BloodRequest.find({
+        isOpen: true,
+        "matchedDonors.donor": req.user._id,
+      })
+        .populate("patient", "name email phone")
+        .populate(
+          "matchedDonors.donor",
+          "name phone bloodGroup city isVerifiedDonor"
+        )
+        .sort({ createdAt: -1 });
+
+      return res.json({ requests });
+    } catch (error) {
+      return res.status(500).json({
+        message: error.message || "Failed to fetch matched requests.",
+      });
+    }
+  }
+);
+
+router.get("/my", protect, allowRoles("patient"), async (req, res) => {
+  try {
+    const requests = await BloodRequest.find({
+      patient: req.user._id,
+    })
+      .populate(
+        "matchedDonors.donor",
+        "name phone bloodGroup city isVerifiedDonor"
+      )
+      .sort({ createdAt: -1 });
+
+    return res.json({ requests });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to fetch your blood requests.",
+    });
   }
 });
 
@@ -115,6 +166,10 @@ router.get("/", protect, async (req, res) => {
     }
 
     const requests = await BloodRequest.find(filter)
+      .populate(
+        "matchedDonors.donor",
+        "name email phone bloodGroup city isVerifiedDonor"
+      )
       .sort({ createdAt: -1 })
       .limit(30);
 
@@ -125,6 +180,74 @@ router.get("/", protect, async (req, res) => {
       .json({ message: error.message || "Failed to fetch requests." });
   }
 });
+
+router.patch(
+  "/:id/respond",
+  protect,
+  allowRoles("donor"),
+  async (req, res) => {
+    try {
+      const { status } = req.body;
+
+      if (!["accepted", "declined"].includes(status)) {
+        return res.status(400).json({
+          message: "Status must be accepted or declined.",
+        });
+      }
+
+      const request = await BloodRequest.findById(req.params.id).populate(
+        "patient",
+        "name email"
+      );
+
+      if (!request) {
+        return res.status(404).json({ message: "Blood request not found." });
+      }
+
+      const matchedDonor = request.matchedDonors.find(
+        (item) => item.donor.toString() === req.user._id.toString()
+      );
+
+      if (!matchedDonor) {
+        return res.status(403).json({
+          message: "This request is not matched with you.",
+        });
+      }
+
+      matchedDonor.status = status;
+      matchedDonor.respondedAt = new Date();
+
+      if (status === "accepted") {
+        request.status = "contacted";
+
+        try {
+          await sendPatientDonorAcceptedEmail({
+            patientEmail: request.patient.email,
+            bloodGroup: request.bloodGroup,
+            donor: req.user,
+            request,
+          });
+        } catch (mailError) {
+          console.log("Accepted donor email failed:", mailError.message);
+        }
+      }
+
+      await request.save();
+
+      return res.json({
+        request,
+        message:
+          status === "accepted"
+            ? "Request accepted. Patient has been notified by email."
+            : "Request declined successfully.",
+      });
+    } catch (error) {
+      return res.status(500).json({
+        message: error.message || "Failed to respond to request.",
+      });
+    }
+  }
+);
 
 router.put("/:id/close", protect, allowRoles("patient"), async (req, res) => {
   try {
@@ -138,9 +261,14 @@ router.put("/:id/close", protect, allowRoles("patient"), async (req, res) => {
     }
 
     request.isOpen = false;
+    request.status = "closed";
+
     await request.save();
 
-    return res.json({ request });
+    return res.json({
+      request,
+      message: "Blood request closed successfully.",
+    });
   } catch (error) {
     return res
       .status(500)

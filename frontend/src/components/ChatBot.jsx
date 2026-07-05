@@ -1,96 +1,60 @@
 import { useState } from "react";
+import { Bot, Send, X } from "lucide-react";
 import api from "../api/axios.js";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
+import { useAndroidBackClose } from "../hooks/useAndroidBackClose.js";
 
 const quickQuestions = [
   "How to register?",
-  "I need blood",
   "How to donate blood?",
   "Find O+ donors",
   "Emergency help",
 ];
 
-const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-
-function getBloodGroupFromText(text) {
-  const cleanText = text.toUpperCase().replace(/\s/g, "");
-  return bloodGroups.find((group) => cleanText.includes(group));
-}
-
-function getAuthToken() {
-  return (
-    localStorage.getItem("token") ||
-    localStorage.getItem("lifedropToken") ||
-    localStorage.getItem("bloodBankToken") ||
-    localStorage.getItem("authToken")
-  );
-}
-
-function getLocalReply(message) {
-  const text = message.toLowerCase();
-
-  if (
-    text.includes("register") ||
-    text.includes("signup") ||
-    text.includes("sign up")
-  ) {
-    return "To register, click the Register button, choose Donor or Patient, fill your name, email, password, phone, blood group and city, then submit the form.";
-  }
-
-  if (text.includes("login")) {
-    return "To login, click Login, enter your registered email or admin username and password, then you will be redirected based on your role.";
-  }
-
-  if (text.includes("donate") || text.includes("donation")) {
-    return "To donate blood, first register as a Donor. After login, open the Donate page and update your availability and donation details.";
-  }
-
-  if (text.includes("need blood") || text.includes("request")) {
-    return "If you need blood, register as a Patient. After login, open the Need Blood page and submit your blood group, hospital, city and contact details.";
-  }
-
-  if (text.includes("emergency") || text.includes("urgent")) {
-    return "For emergency blood need, submit a blood request after login and also contact your nearest hospital or blood bank immediately.";
-  }
-
-  if (text.includes("help") || text.includes("support")) {
-    return "You can use the Help & Support page after login to send your query or issue to the support team.";
-  }
-
-  if (text.includes("eligible") || text.includes("eligibility")) {
-    return "Basic donor eligibility: age 18+, healthy condition, proper weight, and no recent major illness. Always consult a doctor or blood bank staff before donating.";
-  }
-
-  if (text.includes("hi") || text.includes("hello") || text.includes("hey")) {
-    return "Hello! I am LifeDrop Assistant. I can help you with registration, login, blood donation, blood request and emergency guidance.";
-  }
-
-  return "I can help with registration, login, blood donation process, blood request process, emergency help and support guidance.";
-}
-
-export default function ChatBot() {
+const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState([
     {
-      sender: "bot",
-      text: "Hi! I am LifeDrop Assistant. How can I help you today?",
+      from: "bot",
+      text: "Hi! I am LifeDrop Assistant. Ask me about registration, donation, blood requests, or donor search.",
     },
   ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const addMessage = (sender, text) => {
-    setMessages((prev) => [...prev, { sender, text }]);
+  useAndroidBackClose(isOpen, () => setIsOpen(false));
+
+  const getLocalReply = (text) => {
+    const msg = text.toLowerCase();
+
+    if (msg.includes("register") || msg.includes("signup")) {
+      return "To register, click Register button, choose Donor or Patient, fill details, and create your account.";
+    }
+
+    if (msg.includes("donate")) {
+      return "To donate blood, register as a donor, complete eligibility details, then login and update your availability.";
+    }
+
+    if (msg.includes("need") || msg.includes("request")) {
+      return "To request blood, register/login as a patient and go to Need Blood page. Fill blood group, city, hospital and contact details.";
+    }
+
+    if (msg.includes("emergency") || msg.includes("help")) {
+      return "For emergency, create a blood request with correct blood group and city. If matching eligible donors are available, details will be sent to your email.";
+    }
+
+    return null;
+  };
+
+  const extractBloodGroup = (text) => {
+    const upperText = text.toUpperCase();
+    const groups = ["AB+", "AB-", "A+", "A-", "B+", "B-", "O+", "O-"];
+    return groups.find((group) => upperText.includes(group));
   };
 
   const findDonors = async (bloodGroup) => {
     try {
       const response = await api.get("/donors");
-      const data = response.data;
-
-      const donors = data.donors || [];
+      const donors = response.data?.donors || [];
 
       if (!Array.isArray(donors)) {
         return "Sorry, donor data format is not correct.";
@@ -111,7 +75,7 @@ export default function ChatBot() {
         .slice(0, 5)
         .map(
           (donor, index) =>
-            `${index + 1}. ${donor.name} - ${donor.bloodGroup}, ${donor.city}, Phone: ${donor.phone}`,
+            `${index + 1}. ${donor.name} - ${donor.bloodGroup}, ${donor.city}, Phone: ${donor.phone}`
         )
         .join("\n");
 
@@ -130,82 +94,78 @@ export default function ChatBot() {
     }
   };
 
-  const processMessage = async (messageText) => {
-    const lowerText = messageText.toLowerCase();
-    const bloodGroup = getBloodGroupFromText(messageText);
+  const handleSend = async (customText) => {
+    const text = customText || input.trim();
+    if (!text) return;
+
+    setMessages((prev) => [...prev, { from: "user", text }]);
+    setInput("");
+    setLoading(true);
+
+    let reply = getLocalReply(text);
 
     const isDonorSearch =
-      lowerText.includes("find") ||
-      lowerText.includes("available donor") ||
-      lowerText.includes("show donor") ||
-      lowerText.includes("donor list") ||
-      lowerText.includes("donors near") ||
-      bloodGroup;
+      text.toLowerCase().includes("donor") ||
+      text.toLowerCase().includes("find") ||
+      text.toLowerCase().includes("blood");
 
-    if (isDonorSearch) {
-      return await findDonors(bloodGroup);
+    if (!reply && isDonorSearch) {
+      const bloodGroup = extractBloodGroup(text);
+      reply = await findDonors(bloodGroup);
     }
 
-    return getLocalReply(messageText);
-  };
+    if (!reply) {
+      reply =
+        "I can help you with registration, blood donation, blood request, donor search, and emergency support.";
+    }
 
-  const handleSend = async (messageFromButton = "") => {
-    const finalMessage = messageFromButton || input.trim();
-
-    if (!finalMessage) return;
-
-    addMessage("user", finalMessage);
-    setInput("");
-    setIsTyping(true);
-
-    const reply = await processMessage(finalMessage);
-
-    setTimeout(() => {
-      addMessage("bot", reply);
-      setIsTyping(false);
-    }, 500);
-  };
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    handleSend();
+    setMessages((prev) => [...prev, { from: "bot", text: reply }]);
+    setLoading(false);
   };
 
   return (
-    <div className="chatbot-wrapper">
+    <>
       {isOpen && (
-        <div className="chatbot-box">
+        <div
+          className="chatbot-backdrop"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {isOpen && (
+        <div
+          className="chatbot-window"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="chatbot-header">
             <div>
               <h3>LifeDrop Assistant</h3>
               <p>Online blood support</p>
             </div>
 
-            <button type="button" onClick={() => setIsOpen(false)}>
-              ×
+            <button
+              type="button"
+              className="chatbot-close"
+              onClick={() => setIsOpen(false)}
+              aria-label="Close chatbot"
+            >
+              <X size={20} />
             </button>
           </div>
 
-          <div className="chatbot-messages">
+          <div className="chatbot-body">
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`chatbot-message ${
-                  message.sender === "bot" ? "bot-message" : "user-message"
+                className={`chat-message ${
+                  message.from === "bot" ? "bot" : "user"
                 }`}
               >
-                {message.text.split("\n").map((line, lineIndex) => (
-                  <span key={lineIndex}>
-                    {line}
-                    <br />
-                  </span>
-                ))}
+                {message.text}
               </div>
             ))}
 
-            {isTyping && (
-              <div className="chatbot-message bot-message">Typing...</div>
-            )}
+            {loading && <div className="chat-message bot">Typing...</div>}
           </div>
 
           <div className="chatbot-quick">
@@ -220,15 +180,22 @@ export default function ChatBot() {
             ))}
           </div>
 
-          <form className="chatbot-input" onSubmit={handleSubmit}>
+          <form
+            className="chatbot-input"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+          >
             <input
-              type="text"
-              placeholder="Ask about blood donation..."
               value={input}
-              onChange={(event) => setInput(event.target.value)}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask about blood donation..."
             />
 
-            <button type="submit">Send</button>
+            <button type="submit">
+              <Send size={18} />
+            </button>
           </form>
         </div>
       )}
@@ -236,10 +203,14 @@ export default function ChatBot() {
       <button
         type="button"
         className="chatbot-toggle"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen((value) => !value)}
+        aria-label="Open chatbot"
       >
-        {isOpen ? "×" : "AI"}
+        {isOpen ? <X size={26} /> : <Bot size={26} />}
+        <span>AI</span>
       </button>
-    </div>
+    </>
   );
-}
+};
+
+export default ChatBot;

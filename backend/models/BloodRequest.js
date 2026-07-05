@@ -2,6 +2,38 @@ import mongoose from "mongoose";
 
 const bloodRequestSchema = new mongoose.Schema(
   {
+    status: {
+      type: String,
+      enum: ["pending", "donor_found", "contacted", "completed", "closed"],
+      default: "pending",
+    },
+
+    isHospitalVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    matchedDonors: [
+      {
+        donor: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        status: {
+          type: String,
+          enum: ["pending", "accepted", "declined"],
+          default: "pending",
+        },
+        matchedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        respondedAt: {
+          type: Date,
+        },
+      },
+    ],
+
     patient: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

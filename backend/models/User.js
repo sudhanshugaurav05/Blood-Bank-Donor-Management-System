@@ -123,6 +123,39 @@ const userSchema = new mongoose.Schema(
       reasons: [{ type: String }],
     },
 
+    isVerifiedDonor: {
+      type: Boolean,
+      default: false,
+    },
+
+    verificationNote: {
+      type: String,
+      default: "",
+    },
+
+    privacySettings: {
+      showPhoneToPatients: {
+        type: Boolean,
+        default: true,
+      },
+    },
+
+    donorBadges: {
+      type: [String],
+      default: [],
+    },
+
+    donationStats: {
+      totalDonations: {
+        type: Number,
+        default: 0,
+      },
+      emergencyDonations: {
+        type: Number,
+        default: 0,
+      },
+    },
+
     isAvailable: {
       type: Boolean,
       default: true,

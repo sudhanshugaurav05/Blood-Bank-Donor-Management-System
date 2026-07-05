@@ -7,6 +7,7 @@ import donorRoutes from "./routes/donors.js";
 import requestRoutes from "./routes/requests.js";
 import supportRoutes from "./routes/support.js";
 import adminRoutes from "./routes/admin.js";
+import campRoutes from "./routes/camps.js";
 
 dotenv.config();
 connectDB();
@@ -48,6 +49,7 @@ app.use("/api/donors", donorRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/camps", campRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: "API route not found." });

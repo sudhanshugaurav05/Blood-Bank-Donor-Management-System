@@ -1,11 +1,23 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Building2, Droplets, Handshake } from "lucide-react";
+import {
+  AlertCircle,
+  Building2,
+  CheckCircle2,
+  Clock,
+  Droplets,
+  Handshake,
+  Mail,
+  MapPin,
+  ShieldCheck,
+  XCircle,
+} from "lucide-react";
 import api from "../api/axios.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import RequestCard from "../components/RequestCard.jsx";
 
 const NeedBlood = () => {
   const { user } = useAuth();
+
   const [form, setForm] = useState({
     bloodGroup: "O+",
     units: 1,
@@ -15,10 +27,14 @@ const NeedBlood = () => {
     contactNumber: "",
     message: "",
   });
+
   const [requests, setRequests] = useState([]);
+  const [myRequests, setMyRequests] = useState([]);
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [loadingMyRequests, setLoadingMyRequests] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -33,16 +49,77 @@ const NeedBlood = () => {
   }, [user]);
 
   const loadRequests = async () => {
-    const { data } = await api.get("/requests");
-    setRequests(data.requests || []);
+    try {
+      const { data } = await api.get("/requests");
+      setRequests(data.requests || []);
+    } catch {
+      setRequests([]);
+    }
+  };
+
+  const loadMyRequests = async () => {
+    setLoadingMyRequests(true);
+
+    try {
+      const { data } = await api.get("/requests/my");
+      setMyRequests(data.requests || []);
+    } catch (err) {
+      console.log("My requests error:", err.response?.data || err.message);
+      setMyRequests([]);
+    } finally {
+      setLoadingMyRequests(false);
+    }
   };
 
   useEffect(() => {
-    loadRequests().catch(() => setRequests([]));
+    loadRequests();
+    loadMyRequests();
   }, []);
 
   const updateField = (field, value) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+
+  const getStatusLabel = (status, isOpen) => {
+    if (!isOpen) return "Closed";
+
+    const labels = {
+      pending: "Pending",
+      donor_found: "Donor Found",
+      contacted: "Donor Contacted",
+      completed: "Completed",
+      closed: "Closed",
+    };
+
+    return labels[status] || "Pending";
+  };
+
+  const getStatusClass = (status, isOpen) => {
+    if (!isOpen) return "closed";
+    return status || "pending";
+  };
+
+  const getAcceptedDonors = (request) => {
+    return (
+      request.matchedDonors?.filter((item) => item.status === "accepted") || []
+    );
+  };
+
+  const handleCloseRequest = async (requestId) => {
+    const confirmClose = window.confirm("Close this blood request?");
+    if (!confirmClose) return;
+
+    setMessage("");
+    setError("");
+
+    try {
+      const { data } = await api.put(`/requests/${requestId}/close`);
+      setMessage(data.message || "Blood request closed successfully.");
+      loadRequests();
+      loadMyRequests();
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not close request.");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -51,16 +128,22 @@ const NeedBlood = () => {
     setSubmitting(true);
 
     try {
-      await api.post("/requests", { ...form, units: Number(form.units) });
+      const { data } = await api.post("/requests", {
+        ...form,
+        units: Number(form.units),
+      });
+
       setMessage(
-        "Blood request submitted successfully. Donors can now see your requirement.",
+        data.message ||
+          "Blood request submitted successfully. Donors can now see your requirement."
       );
+
       setForm((prev) => ({ ...prev, units: 1, message: "" }));
+
       loadRequests();
+      loadMyRequests();
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Could not submit blood request.",
-      );
+      setError(err.response?.data?.message || "Could not submit blood request.");
     } finally {
       setSubmitting(false);
     }
@@ -73,12 +156,16 @@ const NeedBlood = () => {
           <span className="eyebrow">
             <Droplets size={16} /> Need Blood
           </span>
+
           <h1>Create an emergency blood request</h1>
+
           <p>
             Patients can post blood group, hospital, city, units, and contact
-            details.
+            details. Matching donors can accept your request and you will be
+            notified.
           </p>
         </div>
+
         <div className="status-pill critical-pill">
           <AlertCircle size={18} /> Patient Request Panel
         </div>
@@ -99,11 +186,14 @@ const NeedBlood = () => {
               >
                 {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(
                   (group) => (
-                    <option key={group}>{group}</option>
-                  ),
+                    <option key={group} value={group}>
+                      {group}
+                    </option>
+                  )
                 )}
               </select>
             </label>
+
             <label>
               Units Required
               <input
@@ -115,6 +205,7 @@ const NeedBlood = () => {
                 required
               />
             </label>
+
             <label>
               City
               <input
@@ -123,6 +214,7 @@ const NeedBlood = () => {
                 required
               />
             </label>
+
             <label>
               Hospital Name
               <input
@@ -131,6 +223,7 @@ const NeedBlood = () => {
                 required
               />
             </label>
+
             <label>
               Urgency
               <select
@@ -138,10 +231,13 @@ const NeedBlood = () => {
                 onChange={(e) => updateField("urgency", e.target.value)}
               >
                 {["Normal", "Urgent", "Critical"].map((urgency) => (
-                  <option key={urgency}>{urgency}</option>
+                  <option key={urgency} value={urgency}>
+                    {urgency}
+                  </option>
                 ))}
               </select>
             </label>
+
             <label>
               Contact Number
               <input
@@ -150,6 +246,7 @@ const NeedBlood = () => {
                 required
               />
             </label>
+
             <label className="full">
               Message
               <textarea
@@ -168,31 +265,145 @@ const NeedBlood = () => {
 
         <aside className="side-info glass-card">
           <h3>How communication works</h3>
+
           <p>
             <Building2 size={18} /> Patient posts hospital and contact
             information.
           </p>
+
           <p>
-            <Handshake size={18} /> Donors check homepage/request board and
-            contact patient.
+            <Handshake size={18} /> Eligible donors from same city and blood
+            group are matched.
           </p>
+
           <p>
-            <Droplets size={18} /> Blood group and city filters make search
-            faster.
+            <Mail size={18} /> When donor accepts, patient gets donor details by
+            email.
           </p>
+
           <div className="tip-box">
-            For mini project viva: explain this as a patient-to-donor
-            communication flow.
+            This is a SafeMatch flow: blood group + city + donor eligibility +
+            donor permission.
           </div>
         </aside>
       </div>
 
       <div className="container section-heading lower-heading">
         <span className="eyebrow">
+          <Clock size={16} /> My Requests
+        </span>
+
+        <h2>Track your blood requests</h2>
+      </div>
+
+      <div className="container patient-request-list">
+        {loadingMyRequests ? (
+          <div className="empty-state glass-card">Loading your requests...</div>
+        ) : myRequests.length > 0 ? (
+          myRequests.map((request) => {
+            const acceptedDonors = getAcceptedDonors(request);
+
+            return (
+              <article className="glass-card patient-request-card" key={request._id}>
+                <div className="patient-request-top">
+                  <span className="blood-badge">{request.bloodGroup}</span>
+
+                  <span
+                    className={`request-status-badge ${getStatusClass(
+                      request.status,
+                      request.isOpen
+                    )}`}
+                  >
+                    {getStatusLabel(request.status, request.isOpen)}
+                  </span>
+                </div>
+
+                <h3>{request.hospitalName}</h3>
+
+                <p>
+                  <MapPin size={16} /> {request.city}
+                </p>
+
+                <p>
+                  <Building2 size={16} /> Units required: {request.units}
+                </p>
+
+                <p>
+                  <AlertCircle size={16} /> Urgency: {request.urgency}
+                </p>
+
+                {request.isHospitalVerified ? (
+                  <span className="verified-badge small-status">
+                    <ShieldCheck size={15} /> Hospital Verified
+                  </span>
+                ) : (
+                  <span className="pending-badge small-status">
+                    <Clock size={15} /> Hospital Verification Pending
+                  </span>
+                )}
+
+                <div className="matched-info-box">
+                  <h4>Matched Donors</h4>
+
+                  {request.matchedDonors?.length > 0 ? (
+                    request.matchedDonors.map((item, index) => (
+                      <div className="matched-donor-row" key={index}>
+                        <div>
+                          <strong>
+                            {item.donor?.name || "Matched Donor"}
+                          </strong>
+
+                          <span>
+                            {item.donor?.bloodGroup || request.bloodGroup} •{" "}
+                            {item.donor?.city || request.city}
+                          </span>
+                        </div>
+
+                        <span className={`status-mini ${item.status || "pending"}`}>
+                          {item.status || "pending"}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p>No matching donor found yet.</p>
+                  )}
+                </div>
+
+                {acceptedDonors.length > 0 && (
+                  <div className="accepted-donor-box">
+                    <CheckCircle2 size={18} />
+                    Donor accepted your request. Check your email for donor
+                    contact details.
+                  </div>
+                )}
+
+                {request.isOpen && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => handleCloseRequest(request._id)}
+                  >
+                    <XCircle size={17} /> Close Request
+                  </button>
+                )}
+              </article>
+            );
+          })
+        ) : (
+          <div className="empty-state glass-card">
+            You have not created any blood request yet.
+          </div>
+        )}
+      </div>
+
+      <div className="container section-heading lower-heading">
+        <span className="eyebrow">
           <AlertCircle size={16} /> Open Requests
         </span>
+
         <h2>Active patient requirements</h2>
       </div>
+
       <div className="container cards-grid">
         {requests.length > 0 ? (
           requests.map((request) => (
