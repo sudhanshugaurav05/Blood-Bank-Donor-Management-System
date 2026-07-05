@@ -32,7 +32,7 @@ const Home = () => {
   const isLoggedIn = Boolean(user);
 
   const closeAuthPopup = () => {
-    localStorage.setItem("lifedropAuthPopupSeen", "true");
+    // localStorage.setItem("lifedropAuthPopupSeen", "true");
     setShowAuthPopup(false);
   };
 
