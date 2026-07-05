@@ -2,6 +2,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { protect } from "../middleware/auth.js";
+import { checkDonorEligibility } from "../utils/eligibilityChecker.js";
 
 const router = express.Router();
 
@@ -24,6 +25,15 @@ router.post("/register", async (req, res) => {
       gender,
       hospitalName,
       emergencyContact,
+
+      // donor eligibility fields
+      weight,
+      hemoglobin,
+      donationType,
+      lastDonationDate,
+      permanentRestrictions,
+      temporaryRestrictions,
+      lifestyleRestrictions,
     } = req.body;
 
     if (
@@ -40,9 +50,38 @@ router.post("/register", async (req, res) => {
         .json({ message: "Please fill all required fields." });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({
+      email: email.toLowerCase().trim(),
+    });
+
     if (existingUser) {
       return res.status(409).json({ message: "Email already registered." });
+    }
+
+    let eligibility = {
+      isEligible: true,
+      status: "Eligible",
+      reasons: [],
+    };
+
+    if (role === "donor") {
+      eligibility = checkDonorEligibility({
+        age,
+        weight,
+        hemoglobin,
+        donationType,
+        lastDonationDate,
+        permanentRestrictions,
+        temporaryRestrictions,
+        lifestyleRestrictions,
+      });
+
+      if (!eligibility.isEligible) {
+        return res.status(400).json({
+          message: "Donor is not eligible to donate blood.",
+          eligibility,
+        });
+      }
     }
 
     const colors = [
@@ -53,6 +92,7 @@ router.post("/register", async (req, res) => {
       "#06b6d4",
       "#22c55e",
     ];
+
     const avatarColor = colors[Math.floor(Math.random() * colors.length)];
 
     const user = await User.create({
@@ -68,6 +108,18 @@ router.post("/register", async (req, res) => {
       gender,
       hospitalName,
       emergencyContact,
+
+      // donor eligibility data
+      weight,
+      hemoglobin,
+      donationType,
+      lastDonationDate,
+      permanentRestrictions,
+      temporaryRestrictions,
+      lifestyleRestrictions,
+      eligibility,
+
+      isAvailable: role === "donor",
       avatarColor,
     });
 
@@ -82,22 +134,26 @@ router.post("/register", async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: 'Username/Email and password are required.' });
+      return res
+        .status(400)
+        .json({ message: "Username/Email and password are required." });
     }
 
     const loginValue = email.toLowerCase().trim();
 
     const user = await User.findOne({
       $or: [{ email: loginValue }, { username: loginValue }],
-    }).select('+password');
+    }).select("+password");
 
     if (!user || !(await user.matchPassword(password))) {
-      return res.status(401).json({ message: 'Invalid username/email or password.' });
+      return res
+        .status(401)
+        .json({ message: "Invalid username/email or password." });
     }
 
     return res.json({
@@ -105,7 +161,7 @@ router.post('/login', async (req, res) => {
       user: user.toSafeObject(),
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message || 'Login failed.' });
+    return res.status(500).json({ message: error.message || "Login failed." });
   }
 });
 

@@ -16,12 +16,45 @@ const initialForm = {
   gender: "Prefer not to say",
   hospitalName: "",
   emergencyContact: "",
+
+  weight: "",
+  hemoglobin: "",
+  donationType: "wholeBlood",
+  lastDonationDate: "",
+
+  permanentRestrictions: {
+    hivAids: false,
+    hepatitis: false,
+    cancer: false,
+    chronicHeartDisease: false,
+    chronicKidneyDisease: false,
+    activeTuberculosis: false,
+    uncontrolledDiabetes: false,
+    epilepsy: false,
+  },
+
+  temporaryRestrictions: {
+    feverFluInfection: false,
+    recentSurgery: false,
+    pregnancyBreastfeeding: false,
+    tattooPiercing: false,
+    recentVaccination: false,
+    antibioticsMedication: false,
+    lowHemoglobinAnemia: false,
+  },
+
+  lifestyleRestrictions: {
+    alcoholDrugIntoxication: false,
+    highRiskBehavior: false,
+  },
 };
 
 const Register = () => {
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
+  const [eligibilityReasons, setEligibilityReasons] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -29,19 +62,52 @@ const Register = () => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleHealthCheck = (group, key) => {
+    setForm((prev) => ({
+      ...prev,
+      [group]: {
+        ...prev[group],
+        [key]: !prev[group][key],
+      },
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setEligibilityReasons([]);
     setSubmitting(true);
 
     try {
-      const payload = { ...form, age: form.age ? Number(form.age) : undefined };
+      const payload = {
+        ...form,
+        age: form.age ? Number(form.age) : undefined,
+        weight: form.weight ? Number(form.weight) : undefined,
+        hemoglobin: form.hemoglobin ? Number(form.hemoglobin) : undefined,
+        lastDonationDate: form.lastDonationDate || undefined,
+      };
+
+      if (form.role === "patient") {
+        delete payload.weight;
+        delete payload.hemoglobin;
+        delete payload.donationType;
+        delete payload.lastDonationDate;
+        delete payload.permanentRestrictions;
+        delete payload.temporaryRestrictions;
+        delete payload.lifestyleRestrictions;
+      }
+
       const user = await register(payload);
+
       navigate(user.role === "donor" ? "/donate" : "/need-blood");
     } catch (err) {
       setError(
-        err.response?.data?.message || "Registration failed. Please try again.",
+        err.response?.data?.message || "Registration failed. Please try again."
       );
+
+      if (err.response?.data?.eligibility?.reasons) {
+        setEligibilityReasons(err.response.data.eligibility.reasons);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -54,28 +120,43 @@ const Register = () => {
           <span className="eyebrow">
             <ShieldCheck size={16} /> Secure Registration
           </span>
+
           <h1>Create your LifeDrop account</h1>
+
           <p>
             Register as a donor to help patients, or register as a patient to
-            request blood quickly. After login you will be redirected to your
-            role-based page.
+            request blood quickly. Donor registration includes a health
+            eligibility check for safe blood donation.
           </p>
+
           <div className="auth-points">
             <span>
-              <HeartHandshake size={18} /> Donor profile visible on homepage
+              <HeartHandshake size={18} /> Donor profile visible after approval
             </span>
             <span>
               <HeartHandshake size={18} /> Patient can create blood requests
             </span>
             <span>
-              <HeartHandshake size={18} /> JWT based secure login
+              <HeartHandshake size={18} /> Health-based donor eligibility check
             </span>
           </div>
         </div>
 
         <form className="auth-form glass-card" onSubmit={handleSubmit}>
           <h2>Register</h2>
+
           {error && <div className="alert error">{error}</div>}
+
+          {eligibilityReasons.length > 0 && (
+            <div className="alert error">
+              <strong>Reason:</strong>
+              <ul className="eligibility-reason-list">
+                {eligibilityReasons.map((reason, index) => (
+                  <li key={index}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="role-switch">
             <button
@@ -85,6 +166,7 @@ const Register = () => {
             >
               Donor
             </button>
+
             <button
               type="button"
               className={form.role === "patient" ? "active" : ""}
@@ -103,6 +185,7 @@ const Register = () => {
                 required
               />
             </label>
+
             <label>
               Email
               <input
@@ -112,6 +195,7 @@ const Register = () => {
                 required
               />
             </label>
+
             <label>
               Password
               <input
@@ -122,6 +206,7 @@ const Register = () => {
                 minLength={6}
               />
             </label>
+
             <label>
               Phone
               <input
@@ -130,6 +215,7 @@ const Register = () => {
                 required
               />
             </label>
+
             <label>
               Blood Group
               <select
@@ -139,11 +225,14 @@ const Register = () => {
               >
                 {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(
                   (group) => (
-                    <option key={group}>{group}</option>
-                  ),
+                    <option key={group} value={group}>
+                      {group}
+                    </option>
+                  )
                 )}
               </select>
             </label>
+
             <label>
               City
               <input
@@ -155,38 +244,173 @@ const Register = () => {
           </div>
 
           {form.role === "donor" ? (
-            <div className="form-grid two">
-              <label>
-                Age
-                <input
-                  type="number"
-                  value={form.age}
-                  onChange={(e) => updateField("age", e.target.value)}
-                  min="18"
-                  max="65"
-                />
-              </label>
-              <label>
-                Gender
-                <select
-                  value={form.gender}
-                  onChange={(e) => updateField("gender", e.target.value)}
-                >
-                  {["Male", "Female", "Other", "Prefer not to say"].map(
-                    (gender) => (
-                      <option key={gender}>{gender}</option>
-                    ),
-                  )}
-                </select>
-              </label>
-              <label className="full">
-                Address
-                <input
-                  value={form.address}
-                  onChange={(e) => updateField("address", e.target.value)}
-                />
-              </label>
-            </div>
+            <>
+              <div className="form-grid two">
+                <label>
+                  Age
+                  <input
+                    type="number"
+                    value={form.age}
+                    onChange={(e) => updateField("age", e.target.value)}
+                    min="18"
+                    max="65"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Gender
+                  <select
+                    value={form.gender}
+                    onChange={(e) => updateField("gender", e.target.value)}
+                  >
+                    {["Male", "Female", "Other", "Prefer not to say"].map(
+                      (gender) => (
+                        <option key={gender} value={gender}>
+                          {gender}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </label>
+
+                <label>
+                  Weight kg
+                  <input
+                    type="number"
+                    value={form.weight}
+                    onChange={(e) => updateField("weight", e.target.value)}
+                    min="1"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Hemoglobin g/dL
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={form.hemoglobin}
+                    onChange={(e) => updateField("hemoglobin", e.target.value)}
+                    min="1"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Donation Type
+                  <select
+                    value={form.donationType}
+                    onChange={(e) =>
+                      updateField("donationType", e.target.value)
+                    }
+                  >
+                    <option value="wholeBlood">Whole Blood</option>
+                    <option value="platelets">Platelets</option>
+                    <option value="plasma">Plasma</option>
+                    <option value="doubleRedCells">Double Red Cells</option>
+                  </select>
+                </label>
+
+                <label>
+                  Last Donation Date
+                  <input
+                    type="date"
+                    value={form.lastDonationDate}
+                    onChange={(e) =>
+                      updateField("lastDonationDate", e.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="full">
+                  Address
+                  <input
+                    value={form.address}
+                    onChange={(e) => updateField("address", e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="health-check-card">
+                <h3>Donor Eligibility Check</h3>
+                <p>
+                  Select only if you have any of the following health or
+                  lifestyle conditions.
+                </p>
+
+                <h4>Permanent Restrictions</h4>
+
+                {[
+                  ["hivAids", "HIV/AIDS positive"],
+                  ["hepatitis", "Hepatitis B or Hepatitis C infection"],
+                  ["cancer", "Cancer active or treated with chemo/radiation"],
+                  ["chronicHeartDisease", "Chronic heart disease"],
+                  ["chronicKidneyDisease", "Chronic kidney disease"],
+                  ["activeTuberculosis", "Active Tuberculosis"],
+                  ["uncontrolledDiabetes", "Uncontrolled diabetes / insulin dependent"],
+                  ["epilepsy", "Epilepsy with frequent seizures"],
+                ].map(([key, label]) => (
+                  <label className="checkbox-line" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={form.permanentRestrictions[key]}
+                      onChange={() =>
+                        handleHealthCheck("permanentRestrictions", key)
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+
+                <h4>Temporary Restrictions</h4>
+
+                {[
+                  ["feverFluInfection", "Fever, flu, or active infection"],
+                  ["recentSurgery", "Recent surgery"],
+                  ["pregnancyBreastfeeding", "Pregnancy or breastfeeding"],
+                  ["tattooPiercing", "Tattoo or piercing within last 6–12 months"],
+                  ["recentVaccination", "Recent vaccination"],
+                  [
+                    "antibioticsMedication",
+                    "Currently on antibiotics or strong medication",
+                  ],
+                  [
+                    "lowHemoglobinAnemia",
+                    "Low hemoglobin or iron deficiency anemia",
+                  ],
+                ].map(([key, label]) => (
+                  <label className="checkbox-line" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={form.temporaryRestrictions[key]}
+                      onChange={() =>
+                        handleHealthCheck("temporaryRestrictions", key)
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+
+                <h4>Lifestyle Restrictions</h4>
+
+                {[
+                  ["alcoholDrugIntoxication", "Alcohol or drug intoxication"],
+                  ["highRiskBehavior", "High-risk behavior"],
+                ].map(([key, label]) => (
+                  <label className="checkbox-line" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={form.lifestyleRestrictions[key]}
+                      onChange={() =>
+                        handleHealthCheck("lifestyleRestrictions", key)
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="form-grid two">
               <label>
@@ -196,6 +420,7 @@ const Register = () => {
                   onChange={(e) => updateField("hospitalName", e.target.value)}
                 />
               </label>
+
               <label>
                 Emergency Contact
                 <input
@@ -209,8 +434,9 @@ const Register = () => {
           )}
 
           <button className="btn btn-primary btn-full" disabled={submitting}>
-            {submitting ? "Creating account..." : "Create Account"}
+            {submitting ? "Checking eligibility..." : "Create Account"}
           </button>
+
           <p className="auth-bottom">
             Already registered? <Link to="/login">Login here</Link>
           </p>

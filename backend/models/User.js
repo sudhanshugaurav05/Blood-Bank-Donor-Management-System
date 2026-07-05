@@ -75,6 +75,54 @@ const userSchema = new mongoose.Schema(
       default: "Prefer not to say",
     },
 
+    weight: {
+      type: Number,
+      min: 1,
+    },
+
+    hemoglobin: {
+      type: Number,
+      min: 1,
+    },
+
+    donationType: {
+      type: String,
+      enum: ["wholeBlood", "platelets", "plasma", "doubleRedCells"],
+      default: "wholeBlood",
+    },
+
+    permanentRestrictions: {
+      hivAids: { type: Boolean, default: false },
+      hepatitis: { type: Boolean, default: false },
+      cancer: { type: Boolean, default: false },
+      chronicHeartDisease: { type: Boolean, default: false },
+      chronicKidneyDisease: { type: Boolean, default: false },
+      activeTuberculosis: { type: Boolean, default: false },
+      uncontrolledDiabetes: { type: Boolean, default: false },
+      epilepsy: { type: Boolean, default: false },
+    },
+
+    temporaryRestrictions: {
+      feverFluInfection: { type: Boolean, default: false },
+      recentSurgery: { type: Boolean, default: false },
+      pregnancyBreastfeeding: { type: Boolean, default: false },
+      tattooPiercing: { type: Boolean, default: false },
+      recentVaccination: { type: Boolean, default: false },
+      antibioticsMedication: { type: Boolean, default: false },
+      lowHemoglobinAnemia: { type: Boolean, default: false },
+    },
+
+    lifestyleRestrictions: {
+      alcoholDrugIntoxication: { type: Boolean, default: false },
+      highRiskBehavior: { type: Boolean, default: false },
+    },
+
+    eligibility: {
+      isEligible: { type: Boolean, default: true },
+      status: { type: String, default: "Eligible" },
+      reasons: [{ type: String }],
+    },
+
     isAvailable: {
       type: Boolean,
       default: true,
@@ -101,7 +149,7 @@ const userSchema = new mongoose.Schema(
       default: "#ef4444",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 userSchema.pre("save", async function hashPassword(next) {
@@ -113,7 +161,7 @@ userSchema.pre("save", async function hashPassword(next) {
 });
 
 userSchema.methods.matchPassword = async function matchPassword(
-  enteredPassword
+  enteredPassword,
 ) {
   return bcrypt.compare(enteredPassword, this.password);
 };

@@ -32,7 +32,6 @@ const Home = () => {
   const isLoggedIn = Boolean(user);
 
   const closeAuthPopup = () => {
-    // localStorage.setItem("lifedropAuthPopupSeen", "true");
     setShowAuthPopup(false);
   };
 
@@ -58,7 +57,7 @@ const Home = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Unable to load data. Please login again or check backend server."
+          "Unable to load data. Please login again or check backend server.",
       );
     } finally {
       setLoading(false);
@@ -67,16 +66,12 @@ const Home = () => {
 
   useEffect(() => {
     if (isLoggedIn) {
+      setShowAuthPopup(false);
       loadData();
     } else {
       setDonors([]);
       setRequests([]);
-
-      const popupSeen = localStorage.getItem("lifedropAuthPopupSeen");
-
-      if (!popupSeen) {
-        setShowAuthPopup(true);
-      }
+      setShowAuthPopup(true);
     }
   }, [isLoggedIn]);
 
