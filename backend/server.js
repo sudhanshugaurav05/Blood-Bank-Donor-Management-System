@@ -15,14 +15,25 @@ const app = express();
 
 app.use(
   cors({
-    origin: [
-      process.env.CLIENT_URL,
-      "http://localhost:5173",
-      "http://localhost",
-      "capacitor://localhost",
-    ],
+    origin: function (origin, callback) {
+      const allowedOrigins = [
+        "http://localhost:5173",
+        "https://sudhanshugaurav05.github.io",
+        "https://sudhanshugaurav05.github.io/Blood-Bank-Donor-Management-System",
+        "capacitor://localhost",
+        "http://localhost",
+        "https://localhost",
+        process.env.CLIENT_URL,
+      ].filter(Boolean);
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
     credentials: true,
-  })
+  }),
 );
 app.use(express.json({ limit: "1mb" }));
 
