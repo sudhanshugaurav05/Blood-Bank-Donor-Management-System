@@ -136,7 +136,7 @@ const AdminPanel = () => {
 
   const handleDeleteUser = async (id) => {
     const confirmDelete = window.confirm(
-      "Are you sure you want to delete this user?"
+      "Are you sure you want to delete this user?",
     );
 
     if (!confirmDelete) return;
@@ -166,7 +166,7 @@ const AdminPanel = () => {
       setMessage(
         !donor.isVerifiedDonor
           ? "Donor verified successfully."
-          : "Donor verification removed."
+          : "Donor verification removed.",
       );
 
       loadAdminData();
@@ -186,13 +186,13 @@ const AdminPanel = () => {
       setMessage(
         !request.isHospitalVerified
           ? "Hospital request verified."
-          : "Hospital verification removed."
+          : "Hospital verification removed.",
       );
 
       loadAdminData();
     } catch (err) {
       setError(
-        err.response?.data?.message || "Failed to verify hospital request."
+        err.response?.data?.message || "Failed to verify hospital request.",
       );
     }
   };
@@ -207,6 +207,24 @@ const AdminPanel = () => {
       loadAdminData();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update request.");
+    }
+  };
+
+  const handleAdminDonorResponse = async (requestId, donorId, status) => {
+    clearAlerts();
+
+    try {
+      const { data } = await api.patch(
+        `/admin/requests/${requestId}/donor-response/${donorId}`,
+        { status },
+      );
+
+      setMessage(data.message || "Donor response updated.");
+      loadAdminData();
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Failed to update donor response.",
+      );
     }
   };
 
@@ -243,7 +261,7 @@ const AdminPanel = () => {
   const handleQueryStatus = async (query) => {
     const status = prompt(
       "Enter status: New, In Progress, Resolved",
-      query.status
+      query.status,
     );
 
     if (!status) return;
@@ -620,7 +638,96 @@ const AdminPanel = () => {
                       </button>
                     </td>
 
-                    <td>{request.matchedDonors?.length || 0}</td>
+                    <td>
+                      {request.matchedDonors?.length > 0 ? (
+                        <div className="admin-matched-donor-list">
+                          {request.matchedDonors.map((item, index) => {
+                            const donor = item.donor;
+                            const donorId = donor?._id || donor;
+                            const responseStatus = item.status || "pending";
+                            const requestLocked =
+                              request.status === "completed" ||
+                              request.status === "closed";
+
+                            return (
+                              <div
+                                className="admin-matched-donor"
+                                key={donorId || index}
+                              >
+                                <div>
+                                  <strong>
+                                    {donor?.name || "Matched Donor"}
+                                  </strong>
+                                  <span>
+                                    {donor?.bloodGroup || request.bloodGroup} •{" "}
+                                    {donor?.city || request.city} •{" "}
+                                    {responseStatus}
+                                  </span>
+                                </div>
+
+                                <div className="admin-donor-actions">
+                                  <button
+                                    type="button"
+                                    className="small-btn success"
+                                    disabled={
+                                      responseStatus === "accepted" ||
+                                      requestLocked
+                                    }
+                                    onClick={() =>
+                                      handleAdminDonorResponse(
+                                        request._id,
+                                        donorId,
+                                        "accepted",
+                                      )
+                                    }
+                                  >
+                                    Accept
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="small-btn delete"
+                                    disabled={
+                                      responseStatus === "declined" ||
+                                      requestLocked
+                                    }
+                                    onClick={() =>
+                                      handleAdminDonorResponse(
+                                        request._id,
+                                        donorId,
+                                        "declined",
+                                      )
+                                    }
+                                  >
+                                    Decline
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="small-btn edit"
+                                    disabled={
+                                      responseStatus === "pending" ||
+                                      requestLocked
+                                    }
+                                    onClick={() =>
+                                      handleAdminDonorResponse(
+                                        request._id,
+                                        donorId,
+                                        "pending",
+                                      )
+                                    }
+                                  >
+                                    Reset
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        "No donor"
+                      )}
+                    </td>
 
                     <td>
                       <button

@@ -10,13 +10,23 @@ const createTransporter = () => {
   });
 };
 
+const canSendMail = () => {
+  return Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+};
+
+const formatStatus = (status = "") => {
+  return String(status)
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
 export async function sendPatientDonorMatchEmail({
   patientEmail,
   bloodGroup,
   donors,
 }) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.log("Email credentials missing. Skipping mail.");
+  if (!canSendMail() || !patientEmail) {
+    console.log("Email credentials or patient email missing. Skipping mail.");
     return;
   }
 
@@ -85,14 +95,93 @@ export async function sendPatientDonorMatchEmail({
   });
 }
 
+export async function sendDonorNewBloodRequestEmail({
+  donorEmail,
+  donorName,
+  request,
+  patientName,
+}) {
+  if (!canSendMail() || !donorEmail) {
+    console.log(
+      "Email credentials or donor email missing. Skipping donor mail.",
+    );
+    return;
+  }
+
+  const html = `
+    <div style="font-family: Arial, sans-serif;">
+      <h2>New Blood Request Matched With You</h2>
+
+      <p>Hello ${donorName || "Donor"},</p>
+
+      <p>A patient blood request has been matched with your donor profile.</p>
+
+      <table border="1" cellpadding="8" cellspacing="0">
+        <tr>
+          <th>Patient Name</th>
+          <td>${patientName || "Patient"}</td>
+        </tr>
+
+        <tr>
+          <th>Blood Group</th>
+          <td>${request.bloodGroup}</td>
+        </tr>
+
+        <tr>
+          <th>Hospital</th>
+          <td>${request.hospitalName}</td>
+        </tr>
+
+        <tr>
+          <th>City</th>
+          <td>${request.city}</td>
+        </tr>
+
+        <tr>
+          <th>Units Required</th>
+          <td>${request.units}</td>
+        </tr>
+
+        <tr>
+          <th>Urgency</th>
+          <td>${request.urgency || "Normal"}</td>
+        </tr>
+
+        <tr>
+          <th>Patient Contact</th>
+          <td>${request.contactNumber}</td>
+        </tr>
+      </table>
+
+      <p>Please login to LifeDrop and accept or decline this request.</p>
+
+      <p>
+        Regards,<br />
+        LifeDrop Blood Bank
+      </p>
+    </div>
+  `;
+
+  const transporter = createTransporter();
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to: donorEmail,
+    subject: `LifeDrop: New ${request.bloodGroup} blood request matched with you`,
+    html,
+  });
+}
+
 export async function sendPatientDonorAcceptedEmail({
   patientEmail,
   bloodGroup,
   donor,
   request,
 }) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.log("Email credentials missing. Skipping donor accepted mail.");
+  if (!canSendMail() || !patientEmail) {
+    console.log(
+      "Email credentials or patient email missing. Skipping donor accepted mail.",
+    );
     return;
   }
 
@@ -160,6 +249,203 @@ export async function sendPatientDonorAcceptedEmail({
     from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
     to: patientEmail,
     subject: `LifeDrop: Donor accepted your ${bloodGroup} blood request`,
+    html,
+  });
+}
+
+export async function sendDonorResponseConfirmationEmail({
+  donorEmail,
+  donorName,
+  request,
+  status,
+}) {
+  if (!canSendMail() || !donorEmail) {
+    console.log(
+      "Email credentials or donor email missing. Skipping donor response confirmation mail.",
+    );
+    return;
+  }
+
+  const formattedStatus = formatStatus(status);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif;">
+      <h2>Your Response Has Been Recorded</h2>
+
+      <p>Hello ${donorName || "Donor"},</p>
+
+      <p>Your response for this blood request is: <strong>${formattedStatus}</strong></p>
+
+      <table border="1" cellpadding="8" cellspacing="0">
+        <tr>
+          <th>Blood Group</th>
+          <td>${request.bloodGroup}</td>
+        </tr>
+
+        <tr>
+          <th>Hospital</th>
+          <td>${request.hospitalName}</td>
+        </tr>
+
+        <tr>
+          <th>City</th>
+          <td>${request.city}</td>
+        </tr>
+
+        <tr>
+          <th>Units Required</th>
+          <td>${request.units}</td>
+        </tr>
+
+        <tr>
+          <th>Status</th>
+          <td>${formattedStatus}</td>
+        </tr>
+      </table>
+
+      <p>
+        Regards,<br />
+        LifeDrop Blood Bank
+      </p>
+    </div>
+  `;
+
+  const transporter = createTransporter();
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to: donorEmail,
+    subject: `LifeDrop: Your response is ${formattedStatus}`,
+    html,
+  });
+}
+
+export async function sendRequestStatusUpdateEmail({
+  recipients,
+  request,
+  status,
+  note = "",
+}) {
+  if (!canSendMail()) {
+    console.log("Email credentials missing. Skipping status update mail.");
+    return;
+  }
+
+  const emailList = Array.isArray(recipients)
+    ? recipients.filter(Boolean)
+    : [recipients].filter(Boolean);
+
+  const uniqueEmails = [...new Set(emailList)];
+
+  if (uniqueEmails.length === 0) {
+    console.log("No recipients found for status update mail.");
+    return;
+  }
+
+  const formattedStatus = formatStatus(status);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif;">
+      <h2>Blood Request Status Updated</h2>
+
+      <p>Your LifeDrop blood request status has been updated.</p>
+
+      <table border="1" cellpadding="8" cellspacing="0">
+        <tr>
+          <th>Blood Group</th>
+          <td>${request.bloodGroup}</td>
+        </tr>
+
+        <tr>
+          <th>Hospital</th>
+          <td>${request.hospitalName}</td>
+        </tr>
+
+        <tr>
+          <th>City</th>
+          <td>${request.city}</td>
+        </tr>
+
+        <tr>
+          <th>Units Required</th>
+          <td>${request.units}</td>
+        </tr>
+
+        <tr>
+          <th>Status</th>
+          <td>${formattedStatus}</td>
+        </tr>
+      </table>
+
+      ${note ? `<p><strong>Note:</strong> ${note}</p>` : ""}
+
+      <p>
+        Regards,<br />
+        LifeDrop Blood Bank
+      </p>
+    </div>
+  `;
+
+  const transporter = createTransporter();
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to: uniqueEmails.join(","),
+    subject: `LifeDrop: Blood request status updated to ${formattedStatus}`,
+    html,
+  });
+}
+export async function sendVerificationStatusEmail({
+  recipientEmail,
+  recipientName,
+  verificationType,
+  isVerified,
+  note = "",
+}) {
+  if (!canSendMail() || !recipientEmail) {
+    console.log(
+      "Email credentials or recipient email missing. Skipping verification mail.",
+    );
+    return;
+  }
+
+  const statusText = isVerified ? "Verified" : "Verification Removed";
+
+  const html = `
+    <div style="font-family: Arial, sans-serif;">
+      <h2>LifeDrop ${verificationType} ${statusText}</h2>
+
+      <p>Hello ${recipientName || "User"},</p>
+
+      <p>Your ${verificationType} status has been updated by LifeDrop admin.</p>
+
+      <table border="1" cellpadding="8" cellspacing="0">
+        <tr>
+          <th>Verification Type</th>
+          <td>${verificationType}</td>
+        </tr>
+
+        <tr>
+          <th>Status</th>
+          <td>${statusText}</td>
+        </tr>
+      </table>
+
+      ${note ? `<p><strong>Note:</strong> ${note}</p>` : ""}
+
+      <p>
+        Regards,<br />
+        LifeDrop Blood Bank
+      </p>
+    </div>
+  `;
+
+  const transporter = createTransporter();
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to: recipientEmail,
+    subject: `LifeDrop: ${verificationType} ${statusText}`,
     html,
   });
 }

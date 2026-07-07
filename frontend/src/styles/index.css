@@ -2287,3 +2287,295 @@ video {
     white-space: nowrap;
   }
 }
+
+.dashboard-extra-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.stat-card {
+  padding: 24px;
+  text-align: center;
+}
+
+.stat-card svg {
+  color: var(--primary);
+  margin-bottom: 10px;
+}
+
+.stat-card h3 {
+  font-size: 1.8rem;
+  margin-bottom: 4px;
+  color: var(--dark);
+}
+
+.stat-card p {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.dashboard-section-card {
+  margin-top: 28px;
+  padding: 26px;
+}
+
+.badge-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dashboard-request-list {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.dashboard-request-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #ffe4e6;
+  border-radius: 18px;
+  background: #fff7f9;
+}
+
+.dashboard-request-card h3 {
+  margin: 10px 0 6px;
+}
+
+.dashboard-request-card p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .dashboard-extra-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .dashboard-extra-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-request-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.donor-response-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  font-weight: 900;
+}
+
+.donor-response-note.accepted {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.donor-response-note.declined {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.admin-matched-donor-list {
+  display: grid;
+  gap: 10px;
+  min-width: 260px;
+}
+
+.admin-matched-donor {
+  padding: 10px;
+  border-radius: 14px;
+  background: #fff7f9;
+  border: 1px solid #ffe4e6;
+}
+
+.admin-matched-donor strong {
+  display: block;
+  color: var(--dark);
+  margin-bottom: 4px;
+}
+
+.admin-matched-donor span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.admin-donor-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.admin-donor-actions .small-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dashboard-user-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.dashboard-user-card {
+  padding: 20px;
+  border-radius: 22px;
+  background: #ffffff;
+  border: 1px solid #ffe4e6;
+}
+
+.dashboard-user-card.my-card {
+  border: 2px solid var(--primary);
+  background: #fff7f9;
+}
+
+.dashboard-user-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.dashboard-user-top h3 {
+  margin: 0;
+  color: var(--dark);
+}
+
+.dashboard-user-top p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.card-basic-info {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.card-basic-info span,
+.my-full-details span,
+.details-hidden-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.card-basic-info span {
+  color: var(--dark);
+  font-weight: 900;
+}
+
+.my-full-details {
+  display: grid;
+  gap: 9px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #ffd6df;
+}
+
+.my-full-details h4 {
+  margin: 0 0 4px;
+  color: var(--primary-dark);
+}
+
+.my-full-details span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.details-hidden-note {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: #64748b;
+  font-weight: 900;
+}
+
+@media (max-width: 900px) {
+  .dashboard-user-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .dashboard-user-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.my-donor-card {
+  border: 2px solid var(--primary);
+}
+
+.private-card-note {
+  color: #64748b !important;
+  font-weight: 900;
+}
+
+/* Home page blood group search bar spacing fix */
+.filter-card {
+  width: fit-content !important;
+  max-width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  padding: 14px !important;
+}
+
+.filter-card select {
+  min-width: 180px !important;
+}
+
+.filter-card .btn {
+  min-width: 140px !important;
+}
+
+@media (max-width: 600px) {
+  .filter-card {
+    width: 100% !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .filter-card select,
+  .filter-card .btn {
+    width: 100% !important;
+  }
+}
+
+.verification-warning {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 900;
+}
+
+.request-actions .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

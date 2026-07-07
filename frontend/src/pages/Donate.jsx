@@ -39,6 +39,8 @@ const Donate = () => {
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [loadingCamps, setLoadingCamps] = useState(false);
 
+  const isVerifiedDonor = Boolean(user?.isVerifiedDonor);
+
   useEffect(() => {
     if (user) {
       setForm({
@@ -59,12 +61,31 @@ const Donate = () => {
   }, [user]);
 
   useEffect(() => {
+    loadFreshUser();
     loadMatchedRequests();
     loadCamps();
   }, []);
 
-  const updateField = (field, value) =>
+  const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const clearAlerts = () => {
+    setMessage("");
+    setError("");
+  };
+
+  const loadFreshUser = async () => {
+    try {
+      const { data } = await api.get("/auth/me");
+
+      if (data.user) {
+        updateLocalUser(data.user);
+      }
+    } catch (err) {
+      console.log("Fresh user fetch error:", err.response?.data || err.message);
+    }
+  };
 
   const loadMatchedRequests = async () => {
     setLoadingRequests(true);
@@ -104,8 +125,14 @@ const Donate = () => {
   };
 
   const handleRequestResponse = async (requestId, status) => {
-    setMessage("");
-    setError("");
+    clearAlerts();
+
+    if (status === "accepted" && !isVerifiedDonor) {
+      setError(
+        "Admin verification required. You can accept blood requests only after admin verifies your donor profile."
+      );
+      return;
+    }
 
     try {
       const { data } = await api.patch(`/requests/${requestId}/respond`, {
@@ -122,8 +149,7 @@ const Donate = () => {
   };
 
   const handleCampRegister = async (campId) => {
-    setMessage("");
-    setError("");
+    clearAlerts();
 
     try {
       const { data } = await api.post(`/camps/${campId}/register`);
@@ -145,8 +171,7 @@ const Donate = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage("");
-    setError("");
+    clearAlerts();
     setSubmitting(true);
 
     try {
@@ -186,7 +211,7 @@ const Donate = () => {
           </p>
 
           <div className="donor-badge-row">
-            {user?.isVerifiedDonor ? (
+            {isVerifiedDonor ? (
               <span className="verified-badge">
                 <ShieldCheck size={16} /> Verified Donor
               </span>
@@ -324,6 +349,7 @@ const Donate = () => {
               checked={form.isAvailable}
               onChange={(e) => updateField("isAvailable", e.target.checked)}
             />
+
             <span>
               Available for blood donation and show my profile on homepage
             </span>
@@ -361,9 +387,11 @@ const Donate = () => {
             <span className="eyebrow">
               <HeartHandshake size={16} /> Matched Requests
             </span>
+
             <h2>Blood requests matched with you</h2>
+
             <p>
-              Accept only if you are ready to help. Patient will receive your
+              Accept only after admin verification. Patient will receive your
               details by email after acceptance.
             </p>
           </div>
@@ -383,6 +411,7 @@ const Donate = () => {
                   <article className="request-card" key={request._id}>
                     <div className="request-top">
                       <span className="blood-badge">{request.bloodGroup}</span>
+
                       <span className={`status-mini ${myStatus}`}>
                         {myStatus}
                       </span>
@@ -405,29 +434,54 @@ const Donate = () => {
 
                     {request.message && <p>{request.message}</p>}
 
-                    <div className="request-actions">
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={myStatus !== "pending"}
-                        onClick={() =>
-                          handleRequestResponse(request._id, "accepted")
-                        }
-                      >
-                        <CheckCircle2 size={17} /> Accept
-                      </button>
+                    {myStatus === "pending" ? (
+                      <>
+                        {!isVerifiedDonor && (
+                          <div className="verification-warning">
+                            Admin verification required before accepting blood
+                            requests.
+                          </div>
+                        )}
 
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        disabled={myStatus !== "pending"}
-                        onClick={() =>
-                          handleRequestResponse(request._id, "declined")
-                        }
-                      >
-                        <XCircle size={17} /> Decline
-                      </button>
-                    </div>
+                        <div className="request-actions">
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={!isVerifiedDonor}
+                            onClick={() =>
+                              handleRequestResponse(request._id, "accepted")
+                            }
+                          >
+                            <CheckCircle2 size={17} /> Accept
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() =>
+                              handleRequestResponse(request._id, "declined")
+                            }
+                          >
+                            <XCircle size={17} /> Decline
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className={`donor-response-note ${myStatus}`}>
+                        {myStatus === "accepted" ? (
+                          <>
+                            <CheckCircle2 size={17} />
+                            You accepted this request. Patient has been notified
+                            by email.
+                          </>
+                        ) : (
+                          <>
+                            <XCircle size={17} />
+                            You declined this request.
+                          </>
+                        )}
+                      </div>
+                    )}
                   </article>
                 );
               })}
@@ -440,7 +494,9 @@ const Donate = () => {
             <span className="eyebrow">
               <CalendarDays size={16} /> Blood Camps
             </span>
+
             <h2>Upcoming donation camps</h2>
+
             <p>
               Register for nearby blood donation camps and help more patients.
             </p>
@@ -478,7 +534,9 @@ const Donate = () => {
 
                     <button
                       type="button"
-                      className={registered ? "btn btn-ghost" : "btn btn-primary"}
+                      className={
+                        registered ? "btn btn-ghost" : "btn btn-primary"
+                      }
                       disabled={registered}
                       onClick={() => handleCampRegister(camp._id)}
                     >

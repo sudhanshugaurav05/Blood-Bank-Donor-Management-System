@@ -11,26 +11,35 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const updateField = (field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setError("");
     setSubmitting(true);
 
     try {
-      const user = await login(form);
+      const payload = {
+        email: form.email.trim(),
+        password: form.password,
+      };
 
-      if (user.role === "admin") {
-        navigate("/admin");
-      } else if (user.role === "donor") {
-        navigate("/donate");
-      } else if (user.role === "patient") {
-        navigate("/need-blood");
-      } else {
-        navigate("/");
-      }
+      await login(payload);
+
+      localStorage.removeItem("lifedropAuthPopupSeen");
+
+      // After login, send every user to Dashboard
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(
         err.response?.data?.message ||
+          err.message ||
           "Login failed. Please check your details."
       );
     } finally {
@@ -49,9 +58,8 @@ const Login = () => {
           <h1>Login to continue helping lives</h1>
 
           <p>
-            After login, donors can update availability, patients can post blood
-            requests, and admin can manage donors, patients, requests and
-            queries.
+            After login, you will go to your dashboard where you can see your
+            profile, blood group, activity, and next actions.
           </p>
         </div>
 
@@ -65,10 +73,9 @@ const Login = () => {
             <input
               type="text"
               value={form.email}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, email: e.target.value }))
-              }
+              onChange={(e) => updateField("email", e.target.value)}
               placeholder="Enter email or admin username"
+              autoComplete="username"
               required
             />
           </label>
@@ -78,15 +85,18 @@ const Login = () => {
             <input
               type="password"
               value={form.password}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, password: e.target.value }))
-              }
+              onChange={(e) => updateField("password", e.target.value)}
               placeholder="Enter password"
+              autoComplete="current-password"
               required
             />
           </label>
 
-          <button className="btn btn-primary btn-full" disabled={submitting}>
+          <button
+            type="submit"
+            className="btn btn-primary btn-full"
+            disabled={submitting}
+          >
             <LogIn size={18} /> {submitting ? "Logging in..." : "Login"}
           </button>
 

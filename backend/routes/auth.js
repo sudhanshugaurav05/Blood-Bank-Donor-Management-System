@@ -169,4 +169,31 @@ router.get("/me", protect, async (req, res) => {
   return res.json({ user: req.user });
 });
 
+router.get("/profile-cards", protect, async (req, res) => {
+  try {
+    const users = await User.find({
+      role: { $in: ["donor", "patient"] },
+    })
+      .select("name bloodGroup role city avatarColor isVerifiedDonor")
+      .sort({ createdAt: -1 });
+
+    const cards = users.map((item) => ({
+      _id: item._id,
+      name: item.name,
+      bloodGroup: item.bloodGroup,
+      role: item.role,
+      city: item.city,
+      avatarColor: item.avatarColor,
+      isVerifiedDonor: item.isVerifiedDonor,
+      isMe: item._id.toString() === req.user._id.toString(),
+    }));
+
+    return res.json({ cards });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to fetch profile cards.",
+    });
+  }
+});
+
 export default router;

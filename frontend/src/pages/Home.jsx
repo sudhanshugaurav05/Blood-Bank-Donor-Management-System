@@ -23,7 +23,7 @@ const Home = () => {
 
   const [donors, setDonors] = useState([]);
   const [requests, setRequests] = useState([]);
-  const [filters, setFilters] = useState({ bloodGroup: "", city: "" });
+  const [filters, setFilters] = useState({ bloodGroup: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -44,8 +44,9 @@ const Home = () => {
     try {
       const query = new URLSearchParams();
 
-      if (filters.bloodGroup) query.set("bloodGroup", filters.bloodGroup);
-      if (filters.city) query.set("city", filters.city);
+      if (filters.bloodGroup) {
+        query.set("bloodGroup", filters.bloodGroup);
+      }
 
       const [donorRes, requestRes] = await Promise.all([
         api.get(`/donors?${query.toString()}`),
@@ -57,7 +58,7 @@ const Home = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Unable to load data. Please login again or check backend server.",
+          "Unable to load data. Please login again or check backend server."
       );
     } finally {
       setLoading(false);
@@ -224,14 +225,6 @@ const Home = () => {
                   </option>
                 ))}
               </select>
-
-              <input
-                value={filters.city}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, city: e.target.value }))
-                }
-                placeholder="Search city"
-              />
 
               <button className="btn btn-primary" onClick={loadData}>
                 Search
