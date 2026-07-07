@@ -49,6 +49,8 @@ const updateDonorRewardAfterCompletedRequest = async (request) => {
     return;
   }
 
+  const donationDate = request.completedAt || new Date();
+
   for (const donorId of acceptedDonorIds) {
     const donor = await User.findOne({
       _id: donorId,
@@ -66,6 +68,8 @@ const updateDonorRewardAfterCompletedRequest = async (request) => {
 
     donor.donationStats.totalDonations =
       Number(donor.donationStats.totalDonations || 0) + 1;
+
+    donor.lastDonationDate = donationDate;
 
     if (request.urgency === "Critical" || request.urgency === "Urgent") {
       donor.donationStats.emergencyDonations =
@@ -478,7 +482,10 @@ router.patch("/requests/:id/verify-hospital", async (req, res) => {
             : "Hospital verification has been removed by LifeDrop admin.",
         });
       } catch (mailError) {
-        console.log("Hospital verification donor email failed:", mailError.message);
+        console.log(
+          "Hospital verification donor email failed:",
+          mailError.message
+        );
       }
     }
 
@@ -530,10 +537,11 @@ router.patch("/requests/:id/status", async (req, res) => {
     }
 
     if (status === "completed" && !request.rewardProcessed) {
+      request.completedAt = new Date();
+
       await updateDonorRewardAfterCompletedRequest(request);
 
       request.rewardProcessed = true;
-      request.completedAt = new Date();
     }
 
     await request.save();

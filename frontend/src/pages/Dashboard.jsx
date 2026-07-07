@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Droplets,
   HeartHandshake,
-  Lock,
   Mail,
   MapPin,
   Phone,
@@ -43,34 +42,10 @@ const Dashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      const [meRes, cardRes] = await Promise.all([
-        api.get("/auth/me"),
-        api
-          .get("/auth/profile-cards")
-          .catch(() => ({ data: { cards: [] } })),
-      ]);
-
+      const meRes = await api.get("/auth/me");
       const freshUser = meRes.data?.user || user;
-      const cards = cardRes.data?.cards || [];
 
       setProfile(freshUser);
-
-      if (cards.length > 0) {
-        setProfileCards(cards);
-      } else if (freshUser) {
-        setProfileCards([
-          {
-            _id: freshUser._id || freshUser.id,
-            name: freshUser.name,
-            bloodGroup: freshUser.bloodGroup,
-            role: freshUser.role,
-            city: freshUser.city,
-            avatarColor: freshUser.avatarColor,
-            isVerifiedDonor: freshUser.isVerifiedDonor,
-            isMe: true,
-          },
-        ]);
-      }
 
       if (freshUser?.role === "patient") {
         const requestRes = await api.get("/requests/my");
@@ -78,22 +53,61 @@ const Dashboard = () => {
       }
 
       if (freshUser?.role === "admin") {
-        const [donorRes, patientRes, requestRes, campRes] = await Promise.all([
-          api.get("/admin/donors"),
-          api.get("/admin/patients"),
-          api.get("/admin/requests"),
-          api.get("/admin/camps").catch(() => ({ data: { camps: [] } })),
-        ]);
+        const [donorRes, patientRes, requestRes, campRes, cardRes] =
+          await Promise.all([
+            api.get("/admin/donors"),
+            api.get("/admin/patients"),
+            api.get("/admin/requests"),
+            api.get("/admin/camps").catch(() => ({ data: { camps: [] } })),
+            api
+              .get("/auth/profile-cards")
+              .catch(() => ({ data: { cards: [] } })),
+          ]);
+
+        const donors = donorRes.data?.donors || [];
+        const patients = patientRes.data?.patients || [];
 
         setAdminStats({
-          donors: donorRes.data?.donors?.length || 0,
-          patients: patientRes.data?.patients?.length || 0,
+          donors: donors.length,
+          patients: patients.length,
           requests: requestRes.data?.requests?.length || 0,
           camps: campRes.data?.camps?.length || 0,
         });
+
+        const cardsFromApi = cardRes.data?.cards || [];
+
+        if (cardsFromApi.length > 0) {
+          setProfileCards(cardsFromApi);
+        } else {
+          setProfileCards([
+            ...donors.map((donor) => ({
+              _id: donor._id,
+              name: donor.name,
+              bloodGroup: donor.bloodGroup,
+              role: donor.role,
+              city: donor.city,
+              avatarColor: donor.avatarColor,
+              isVerifiedDonor: donor.isVerifiedDonor,
+            })),
+            ...patients.map((patient) => ({
+              _id: patient._id,
+              name: patient.name,
+              bloodGroup: patient.bloodGroup,
+              role: patient.role,
+              city: patient.city,
+              avatarColor: patient.avatarColor,
+              isVerifiedDonor: patient.isVerifiedDonor,
+            })),
+          ]);
+        }
+      } else {
+        setProfileCards([]);
       }
     } catch (error) {
-      console.log("Dashboard load error:", error.response?.data || error.message);
+      console.log(
+        "Dashboard load error:",
+        error.response?.data || error.message
+      );
     }
   };
 
@@ -225,92 +239,95 @@ const Dashboard = () => {
         </article>
       </div>
 
-      <div className="container dashboard-section-card glass-card">
-        <div className="section-title compact-title">
-          <span className="eyebrow">
-            <Users size={16} /> User Cards
-          </span>
+      {profile?.role === "admin" && (
+        <div className="container dashboard-extra-grid">
+          <article className="glass-card stat-card">
+            <Users size={28} />
+            <h3>{adminStats.donors}</h3>
+            <p>Total Donors</p>
+          </article>
 
-          <h2>Registered user cards</h2>
+          <article className="glass-card stat-card">
+            <UserRound size={28} />
+            <h3>{adminStats.patients}</h3>
+            <p>Total Patients</p>
+          </article>
 
-          <p>
-            Everyone can see only name and blood group. Full details are visible
-            only on your own card.
-          </p>
+          <article className="glass-card stat-card">
+            <Droplets size={28} />
+            <h3>{adminStats.requests}</h3>
+            <p>Blood Requests</p>
+          </article>
+
+          <article className="glass-card stat-card">
+            <CheckCircle2 size={28} />
+            <h3>{adminStats.camps}</h3>
+            <p>Blood Camps</p>
+          </article>
         </div>
+      )}
 
-        <div className="dashboard-user-card-grid">
-          {profileCards.map((item) => (
-            <article
-              className={`dashboard-user-card ${item.isMe ? "my-card" : ""}`}
-              key={item._id}
-            >
-              <div className="dashboard-user-top">
-                <div
-                  className="avatar"
-                  style={{ background: item.avatarColor || "#ef4444" }}
-                >
-                  {item.name?.charAt(0)}
-                </div>
+      {profile?.role === "admin" && (
+        <div className="container dashboard-section-card glass-card">
+          <div className="section-title compact-title">
+            <span className="eyebrow">
+              <Users size={16} /> Admin User Cards
+            </span>
 
-                <div>
-                  <h3>{item.name}</h3>
-                  <p>{getCardRoleLabel(item.role)}</p>
-                </div>
-              </div>
+            <h2>Registered user cards</h2>
 
-              <div className="card-basic-info">
-                <span>
-                  <Droplets size={16} /> {item.bloodGroup || "N/A"}
-                </span>
+            <p>
+              This section is visible only to admin. Donor and patient dashboard
+              will not show registered user cards.
+            </p>
+          </div>
 
-                <span>
-                  <MapPin size={16} /> {item.city || "City hidden"}
-                </span>
-              </div>
+          {profileCards.length > 0 ? (
+            <div className="dashboard-user-card-grid">
+              {profileCards.map((item) => (
+                <article className="dashboard-user-card" key={item._id}>
+                  <div className="dashboard-user-top">
+                    <div
+                      className="avatar"
+                      style={{ background: item.avatarColor || "#ef4444" }}
+                    >
+                      {item.name?.charAt(0)}
+                    </div>
 
-              {item.isMe ? (
-                <div className="my-full-details">
-                  <h4>Your full details</h4>
+                    <div>
+                      <h3>{item.name}</h3>
+                      <p>{getCardRoleLabel(item.role)}</p>
+                    </div>
+                  </div>
 
-                  <span>
-                    <Mail size={15} /> {profile?.email}
-                  </span>
+                  <div className="card-basic-info">
+                    <span>
+                      <Droplets size={16} /> {item.bloodGroup || "N/A"}
+                    </span>
 
-                  <span>
-                    <Phone size={15} /> {profile?.phone}
-                  </span>
+                    <span>
+                      <MapPin size={16} /> {item.city || "City not added"}
+                    </span>
 
-                  <span>
-                    <UserRound size={15} /> {getRoleLabel()}
-                  </span>
-
-                  {profile?.role === "donor" && (
-                    <>
+                    {item.role === "donor" && (
                       <span>
-                        <ShieldCheck size={15} />{" "}
-                        {profile?.isVerifiedDonor
+                        <ShieldCheck size={16} />{" "}
+                        {item.isVerifiedDonor
                           ? "Verified Donor"
                           : "Verification Pending"}
                       </span>
-
-                      <span>
-                        <Trophy size={15} /> Total Donations:{" "}
-                        {totalDonations}
-                      </span>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="details-hidden-note">
-                  <Lock size={15} />
-                  Full details hidden for privacy
-                </div>
-              )}
-            </article>
-          ))}
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              No registered donor or patient found.
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {profile?.role === "donor" && (
         <div className="container dashboard-extra-grid">
@@ -421,34 +438,6 @@ const Dashboard = () => {
           <Link className="btn btn-primary" to="/need-blood">
             View All Requests
           </Link>
-        </div>
-      )}
-
-      {profile?.role === "admin" && (
-        <div className="container dashboard-extra-grid">
-          <article className="glass-card stat-card">
-            <Users size={28} />
-            <h3>{adminStats.donors}</h3>
-            <p>Total Donors</p>
-          </article>
-
-          <article className="glass-card stat-card">
-            <UserRound size={28} />
-            <h3>{adminStats.patients}</h3>
-            <p>Total Patients</p>
-          </article>
-
-          <article className="glass-card stat-card">
-            <Droplets size={28} />
-            <h3>{adminStats.requests}</h3>
-            <p>Blood Requests</p>
-          </article>
-
-          <article className="glass-card stat-card">
-            <CheckCircle2 size={28} />
-            <h3>{adminStats.camps}</h3>
-            <p>Blood Camps</p>
-          </article>
         </div>
       )}
     </section>
