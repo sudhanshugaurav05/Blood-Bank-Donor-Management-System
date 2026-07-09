@@ -449,3 +449,47 @@ export async function sendVerificationStatusEmail({
     html,
   });
 }
+export async function sendPasswordResetEmail({
+  userEmail,
+  userName,
+  resetUrl,
+}) {
+  if (!canSendMail() || !userEmail) {
+    console.log("Email credentials or user email missing. Skipping password reset mail.");
+    return;
+  }
+
+  const html = `
+    <div style="font-family: Arial, sans-serif;">
+      <h2>LifeDrop Password Reset</h2>
+
+      <p>Hello ${userName || "User"},</p>
+
+      <p>You requested to reset your LifeDrop account password.</p>
+
+      <p>
+        <a href="${resetUrl}" style="display:inline-block;padding:12px 18px;background:#e11d48;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:bold;">
+          Reset Password
+        </a>
+      </p>
+
+      <p>This link will expire in 15 minutes.</p>
+
+      <p>If you did not request this, please ignore this email.</p>
+
+      <p>
+        Regards,<br />
+        LifeDrop Blood Bank
+      </p>
+    </div>
+  `;
+
+  const transporter = createTransporter();
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to: userEmail,
+    subject: "LifeDrop: Reset your password",
+    html,
+  });
+}

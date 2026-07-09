@@ -111,13 +111,91 @@ router.get("/donors", async (req, res) => {
 router.get("/patients", async (req, res) => {
   try {
     const patients = await User.find({ role: "patient" })
-      .select("-password")
+      .select("-password -patientProofDocument.fileData")
       .sort({ createdAt: -1 });
 
     return res.json({ patients });
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Failed to fetch patients.",
+    });
+  }
+});
+
+router.get("/patients/:id/document", async (req, res) => {
+  try {
+    const patient = await User.findOne({
+      _id: req.params.id,
+      role: "patient",
+    }).select("name email patientProofDocument");
+
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found." });
+    }
+
+    if (!patient.patientProofDocument?.fileData) {
+      return res.status(404).json({
+        message: "Patient proof document not found.",
+      });
+    }
+
+    return res.json({
+      patientName: patient.name,
+      patientEmail: patient.email,
+      document: patient.patientProofDocument,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to fetch patient document.",
+    });
+  }
+});
+
+router.patch("/patients/:id/verify", async (req, res) => {
+  try {
+    const { isVerifiedPatient, patientVerificationNote } = req.body;
+
+    const patient = await User.findOne({
+      _id: req.params.id,
+      role: "patient",
+    });
+
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found." });
+    }
+
+    patient.isVerifiedPatient = Boolean(isVerifiedPatient);
+    patient.patientVerificationNote =
+      patientVerificationNote ||
+      (patient.isVerifiedPatient
+        ? "Patient verified by LifeDrop admin."
+        : "Patient verification removed by LifeDrop admin.");
+
+    await patient.save();
+
+    try {
+      await sendVerificationStatusEmail({
+        recipientEmail: patient.email,
+        recipientName: patient.name,
+        verificationType: "Patient Profile",
+        isVerified: patient.isVerifiedPatient,
+        note: patient.isVerifiedPatient
+          ? "Your patient profile has been verified after document checking."
+          : "Your patient verification has been removed by LifeDrop admin.",
+      });
+    } catch (mailError) {
+      console.log("Patient verification email failed:", mailError.message);
+    }
+
+    return res.json({
+      patient: patient.toSafeObject(),
+      message: patient.isVerifiedPatient
+        ? "Patient verified successfully. Email sent to patient."
+        : "Patient verification removed. Email sent to patient.",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to update patient verification.",
     });
   }
 });
@@ -164,6 +242,9 @@ router.post("/users", async (req, res) => {
       address,
       age,
       gender,
+      hospitalName,
+      hospitalContactNumber,
+      emergencyContact,
     } = req.body;
 
     if (!["donor", "patient"].includes(role)) {
@@ -195,6 +276,9 @@ router.post("/users", async (req, res) => {
       address,
       age,
       gender,
+      hospitalName,
+      hospitalContactNumber,
+      emergencyContact,
       isAvailable: role === "donor",
     });
 
@@ -232,7 +316,10 @@ router.put("/users/:id", async (req, res) => {
       "gender",
       "isAvailable",
       "hospitalName",
+      "hospitalContactNumber",
       "emergencyContact",
+      "isVerifiedPatient",
+      "patientVerificationNote",
     ];
 
     allowedFields.forEach((field) => {

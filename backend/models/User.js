@@ -75,6 +75,54 @@ const userSchema = new mongoose.Schema(
       default: "Prefer not to say",
     },
 
+    // Patient verification fields
+    hospitalName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    hospitalContactNumber: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    emergencyContact: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    patientProofDocument: {
+      fileName: {
+        type: String,
+        default: "",
+      },
+      fileType: {
+        type: String,
+        default: "",
+      },
+      fileData: {
+        type: String,
+        default: "",
+      },
+      uploadedAt: {
+        type: Date,
+      },
+    },
+
+    isVerifiedPatient: {
+      type: Boolean,
+      default: false,
+    },
+
+    patientVerificationNote: {
+      type: String,
+      default: "",
+    },
+
+    // Donor eligibility fields
     weight: {
       type: Number,
       min: 1,
@@ -165,24 +213,12 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
 
-    hospitalName: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-
-    emergencyContact: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-
     avatarColor: {
       type: String,
       default: "#ef4444",
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 userSchema.pre("save", async function hashPassword(next) {
@@ -190,18 +226,21 @@ userSchema.pre("save", async function hashPassword(next) {
 
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+
   next();
 });
 
 userSchema.methods.matchPassword = async function matchPassword(
-  enteredPassword,
+  enteredPassword
 ) {
   return bcrypt.compare(enteredPassword, this.password);
 };
 
 userSchema.methods.toSafeObject = function toSafeObject() {
   const obj = this.toObject();
+
   delete obj.password;
+
   return obj;
 };
 

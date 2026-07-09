@@ -13,6 +13,8 @@ import Dashboard from "./pages/Dashboard.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import ChatBot from "./components/ChatBot";
 import AdminPanel from "./pages/AdminPanel";
+import ForgotPassword from "./pages/ForgotPassword.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 
 function App() {
   return (
@@ -25,6 +27,8 @@ function App() {
           <Route path="/why-need" element={<WhyNeed />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
 
           <Route
             path="/donate"
@@ -77,9 +81,7 @@ function App() {
 
       <Footer />
 
-       
       <ChatBot />
-     
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LockKeyhole, LogIn } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, LogIn } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 
 const Login = () => {
   const [form, setForm] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -33,8 +34,6 @@ const Login = () => {
       await login(payload);
 
       localStorage.removeItem("lifedropAuthPopupSeen");
-
-      // After login, send every user to Dashboard
       navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(
@@ -69,7 +68,10 @@ const Login = () => {
           {error && <div className="alert error">{error}</div>}
 
           <label>
-            Email or Username
+            <span className="label-title">
+              Email or Username <b className="required-star">*</b>
+            </span>
+
             <input
               type="text"
               value={form.email}
@@ -81,16 +83,34 @@ const Login = () => {
           </label>
 
           <label>
-            Password
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => updateField("password", e.target.value)}
-              placeholder="Enter password"
-              autoComplete="current-password"
-              required
-            />
+            <span className="label-title">
+              Password <b className="required-star">*</b>
+            </span>
+
+            <div className="password-field">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={(e) => updateField("password", e.target.value)}
+                placeholder="Enter password"
+                autoComplete="current-password"
+                required
+              />
+
+              <button
+                type="button"
+                className="password-eye"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </label>
+
+          <div className="forgot-row">
+            <Link to="/forgot-password">Forgot password?</Link>
+          </div>
 
           <button
             type="submit"

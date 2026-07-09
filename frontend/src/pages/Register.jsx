@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { HeartHandshake, ShieldCheck } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  FileText,
+  HeartHandshake,
+  ShieldCheck,
+  Upload,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 
 const initialForm = {
@@ -14,8 +21,15 @@ const initialForm = {
   address: "",
   age: "",
   gender: "Prefer not to say",
+
   hospitalName: "",
+  hospitalContactNumber: "",
   emergencyContact: "",
+  patientProofDocument: {
+    fileName: "",
+    fileType: "",
+    fileData: "",
+  },
 
   weight: "",
   hemoglobin: "",
@@ -49,8 +63,18 @@ const initialForm = {
   },
 };
 
+const RequiredLabel = ({ children }) => {
+  return (
+    <span className="label-title">
+      {children} <b className="required-star">*</b>
+    </span>
+  );
+};
+
 const Register = () => {
   const [form, setForm] = useState(initialForm);
+  const [showPassword, setShowPassword] = useState(false);
+
   const [error, setError] = useState("");
   const [eligibilityReasons, setEligibilityReasons] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -72,13 +96,98 @@ const Register = () => {
     }));
   };
 
+  const handleRoleChange = (role) => {
+    setForm((prev) => ({
+      ...prev,
+      role,
+    }));
+
+    setError("");
+    setEligibilityReasons([]);
+  };
+
+  const handlePatientDocumentChange = (e) => {
+    const file = e.target.files?.[0];
+
+    setError("");
+
+    if (!file) {
+      updateField("patientProofDocument", {
+        fileName: "",
+        fileType: "",
+        fileData: "",
+      });
+      return;
+    }
+
+    const allowedTypes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+    ];
+
+    const maxSize = 2 * 1024 * 1024;
+
+    if (!allowedTypes.includes(file.type)) {
+      setError("Only PDF, JPG, JPEG and PNG documents are allowed.");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setError("Document size must be less than 2 MB.");
+      e.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      updateField("patientProofDocument", {
+        fileName: file.name,
+        fileType: file.type,
+        fileData: reader.result,
+      });
+    };
+
+    reader.onerror = () => {
+      setError("Could not read selected document. Please try again.");
+    };
+
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setError("");
     setEligibilityReasons([]);
     setSubmitting(true);
 
     try {
+      if (form.role === "patient") {
+        if (!form.hospitalName.trim()) {
+          setError("Hospital name is required.");
+          setSubmitting(false);
+          return;
+        }
+
+        if (!form.hospitalContactNumber.trim()) {
+          setError("Hospital contact number is required.");
+          setSubmitting(false);
+          return;
+        }
+
+        if (!form.patientProofDocument.fileData) {
+          setError(
+            "Please upload hospital bill, doctor prescription or medical proof document."
+          );
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const payload = {
         ...form,
         age: form.age ? Number(form.age) : undefined,
@@ -97,12 +206,25 @@ const Register = () => {
         delete payload.lifestyleRestrictions;
       }
 
+      if (form.role === "donor") {
+        delete payload.hospitalName;
+        delete payload.hospitalContactNumber;
+        delete payload.patientProofDocument;
+      }
+
       const user = await register(payload);
 
-      navigate(user.role === "donor" ? "/donate" : "/need-blood");
+      localStorage.removeItem("lifedropAuthPopupSeen");
+
+      navigate(user.role === "donor" ? "/donate" : "/need-blood", {
+        replace: true,
+      });
     } catch (err) {
       setError(
-        err.response?.data?.message || "Registration failed. Please try again."
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          err.message ||
+          "Registration failed. Please try again."
       );
 
       if (err.response?.data?.eligibility?.reasons) {
@@ -125,19 +247,21 @@ const Register = () => {
 
           <p>
             Register as a donor to help patients, or register as a patient to
-            request blood quickly. Donor registration includes a health
-            eligibility check for safe blood donation.
+            request blood quickly. Patient registration includes proof document
+            verification to reduce fake blood requests.
           </p>
 
           <div className="auth-points">
             <span>
               <HeartHandshake size={18} /> Donor profile visible after approval
             </span>
+
             <span>
               <HeartHandshake size={18} /> Patient can create blood requests
             </span>
+
             <span>
-              <HeartHandshake size={18} /> Health-based donor eligibility check
+              <HeartHandshake size={18} /> Patient proof checked by admin
             </span>
           </div>
         </div>
@@ -145,11 +269,16 @@ const Register = () => {
         <form className="auth-form glass-card" onSubmit={handleSubmit}>
           <h2>Register</h2>
 
+          <p className="required-note">
+            Fields marked with <b className="required-star">*</b> are mandatory.
+          </p>
+
           {error && <div className="alert error">{error}</div>}
 
           {eligibilityReasons.length > 0 && (
             <div className="alert error">
               <strong>Reason:</strong>
+
               <ul className="eligibility-reason-list">
                 {eligibilityReasons.map((reason, index) => (
                   <li key={index}>{reason}</li>
@@ -162,7 +291,7 @@ const Register = () => {
             <button
               type="button"
               className={form.role === "donor" ? "active" : ""}
-              onClick={() => updateField("role", "donor")}
+              onClick={() => handleRoleChange("donor")}
             >
               Donor
             </button>
@@ -170,7 +299,7 @@ const Register = () => {
             <button
               type="button"
               className={form.role === "patient" ? "active" : ""}
-              onClick={() => updateField("role", "patient")}
+              onClick={() => handleRoleChange("patient")}
             >
               Patient
             </button>
@@ -178,46 +307,68 @@ const Register = () => {
 
           <div className="form-grid two">
             <label>
-              Full Name
+              <RequiredLabel>Full Name</RequiredLabel>
+
               <input
                 value={form.name}
                 onChange={(e) => updateField("name", e.target.value)}
+                placeholder="Enter full name"
                 required
               />
             </label>
 
             <label>
-              Email
+              <RequiredLabel>Email</RequiredLabel>
+
               <input
                 type="email"
                 value={form.email}
                 onChange={(e) => updateField("email", e.target.value)}
+                placeholder="Enter email"
+                autoComplete="email"
                 required
               />
             </label>
 
             <label>
-              Password
-              <input
-                type="password"
-                value={form.password}
-                onChange={(e) => updateField("password", e.target.value)}
-                required
-                minLength={6}
-              />
+              <RequiredLabel>Password</RequiredLabel>
+
+              <div className="password-field">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) => updateField("password", e.target.value)}
+                  placeholder="Minimum 6 characters"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                />
+
+                <button
+                  type="button"
+                  className="password-eye"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </label>
 
             <label>
-              Phone
+              <RequiredLabel>Phone</RequiredLabel>
+
               <input
                 value={form.phone}
                 onChange={(e) => updateField("phone", e.target.value)}
+                placeholder="Enter phone number"
                 required
               />
             </label>
 
             <label>
-              Blood Group
+              <RequiredLabel>Blood Group</RequiredLabel>
+
               <select
                 value={form.bloodGroup}
                 onChange={(e) => updateField("bloodGroup", e.target.value)}
@@ -234,10 +385,12 @@ const Register = () => {
             </label>
 
             <label>
-              City
+              <RequiredLabel>City</RequiredLabel>
+
               <input
                 value={form.city}
                 onChange={(e) => updateField("city", e.target.value)}
+                placeholder="Enter city"
                 required
               />
             </label>
@@ -247,13 +400,15 @@ const Register = () => {
             <>
               <div className="form-grid two">
                 <label>
-                  Age
+                  <RequiredLabel>Age</RequiredLabel>
+
                   <input
                     type="number"
                     value={form.age}
                     onChange={(e) => updateField("age", e.target.value)}
                     min="18"
                     max="65"
+                    placeholder="18 to 65"
                     required
                   />
                 </label>
@@ -275,24 +430,28 @@ const Register = () => {
                 </label>
 
                 <label>
-                  Weight kg
+                  <RequiredLabel>Weight kg</RequiredLabel>
+
                   <input
                     type="number"
                     value={form.weight}
                     onChange={(e) => updateField("weight", e.target.value)}
                     min="1"
+                    placeholder="Minimum 50 kg"
                     required
                   />
                 </label>
 
                 <label>
-                  Hemoglobin g/dL
+                  <RequiredLabel>Hemoglobin g/dL</RequiredLabel>
+
                   <input
                     type="number"
                     step="0.1"
                     value={form.hemoglobin}
                     onChange={(e) => updateField("hemoglobin", e.target.value)}
                     min="1"
+                    placeholder="Minimum 12.5"
                     required
                   />
                 </label>
@@ -328,12 +487,14 @@ const Register = () => {
                   <input
                     value={form.address}
                     onChange={(e) => updateField("address", e.target.value)}
+                    placeholder="Enter address"
                   />
                 </label>
               </div>
 
               <div className="health-check-card">
                 <h3>Donor Eligibility Check</h3>
+
                 <p>
                   Select only if you have any of the following health or
                   lifestyle conditions.
@@ -348,7 +509,10 @@ const Register = () => {
                   ["chronicHeartDisease", "Chronic heart disease"],
                   ["chronicKidneyDisease", "Chronic kidney disease"],
                   ["activeTuberculosis", "Active Tuberculosis"],
-                  ["uncontrolledDiabetes", "Uncontrolled diabetes / insulin dependent"],
+                  [
+                    "uncontrolledDiabetes",
+                    "Uncontrolled diabetes / insulin dependent",
+                  ],
                   ["epilepsy", "Epilepsy with frequent seizures"],
                 ].map(([key, label]) => (
                   <label className="checkbox-line" key={key}>
@@ -359,6 +523,7 @@ const Register = () => {
                         handleHealthCheck("permanentRestrictions", key)
                       }
                     />
+
                     {label}
                   </label>
                 ))}
@@ -369,7 +534,10 @@ const Register = () => {
                   ["feverFluInfection", "Fever, flu, or active infection"],
                   ["recentSurgery", "Recent surgery"],
                   ["pregnancyBreastfeeding", "Pregnancy or breastfeeding"],
-                  ["tattooPiercing", "Tattoo or piercing within last 6–12 months"],
+                  [
+                    "tattooPiercing",
+                    "Tattoo or piercing within last 6–12 months",
+                  ],
                   ["recentVaccination", "Recent vaccination"],
                   [
                     "antibioticsMedication",
@@ -388,6 +556,7 @@ const Register = () => {
                         handleHealthCheck("temporaryRestrictions", key)
                       }
                     />
+
                     {label}
                   </label>
                 ))}
@@ -406,31 +575,88 @@ const Register = () => {
                         handleHealthCheck("lifestyleRestrictions", key)
                       }
                     />
+
                     {label}
                   </label>
                 ))}
               </div>
             </>
           ) : (
-            <div className="form-grid two">
-              <label>
-                Hospital Name
-                <input
-                  value={form.hospitalName}
-                  onChange={(e) => updateField("hospitalName", e.target.value)}
-                />
-              </label>
+            <>
+              <div className="patient-proof-card">
+                <h3>
+                  <FileText size={18} /> Patient Verification Details
+                </h3>
 
-              <label>
-                Emergency Contact
-                <input
-                  value={form.emergencyContact}
-                  onChange={(e) =>
-                    updateField("emergencyContact", e.target.value)
-                  }
-                />
-              </label>
-            </div>
+                <p>
+                  Upload hospital bill, doctor prescription or medical proof.
+                  Admin will verify this document before approving patient
+                  request authenticity.
+                </p>
+              </div>
+
+              <div className="form-grid two">
+                <label>
+                  <RequiredLabel>Hospital Name</RequiredLabel>
+
+                  <input
+                    value={form.hospitalName}
+                    onChange={(e) =>
+                      updateField("hospitalName", e.target.value)
+                    }
+                    placeholder="Enter hospital name"
+                    required
+                  />
+                </label>
+
+                <label>
+                  <RequiredLabel>Hospital Contact Number</RequiredLabel>
+
+                  <input
+                    value={form.hospitalContactNumber}
+                    onChange={(e) =>
+                      updateField("hospitalContactNumber", e.target.value)
+                    }
+                    placeholder="Enter hospital/doctor contact number"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Emergency Contact
+                  <input
+                    value={form.emergencyContact}
+                    onChange={(e) =>
+                      updateField("emergencyContact", e.target.value)
+                    }
+                    placeholder="Emergency contact number"
+                  />
+                </label>
+
+                <label>
+                  <RequiredLabel>Proof Document</RequiredLabel>
+
+                  <div className="file-upload-box">
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={handlePatientDocumentChange}
+                      required
+                    />
+
+                    <span>
+                      <Upload size={17} /> Upload PDF/JPG/PNG
+                    </span>
+                  </div>
+
+                  {form.patientProofDocument.fileName && (
+                    <small className="selected-file-name">
+                      Selected: {form.patientProofDocument.fileName}
+                    </small>
+                  )}
+                </label>
+              </div>
+            </>
           )}
 
           <button className="btn btn-primary btn-full" disabled={submitting}>

@@ -12,6 +12,9 @@ const emptyForm = {
   address: "",
   age: "",
   gender: "Prefer not to say",
+  hospitalName: "",
+  hospitalContactNumber: "",
+  emergencyContact: "",
 };
 
 const emptyCampForm = {
@@ -117,15 +120,39 @@ const AdminPanel = () => {
     const bloodGroup = prompt("Enter blood group", user.bloodGroup);
     if (bloodGroup === null) return;
 
+    const hospitalName =
+      user.role === "patient"
+        ? prompt("Enter hospital name", user.hospitalName || "")
+        : undefined;
+
+    if (user.role === "patient" && hospitalName === null) return;
+
+    const hospitalContactNumber =
+      user.role === "patient"
+        ? prompt(
+            "Enter hospital contact number",
+            user.hospitalContactNumber || ""
+          )
+        : undefined;
+
+    if (user.role === "patient" && hospitalContactNumber === null) return;
+
     clearAlerts();
 
     try {
-      await api.put(`/admin/users/${user._id}`, {
+      const payload = {
         name,
         phone,
         city,
         bloodGroup,
-      });
+      };
+
+      if (user.role === "patient") {
+        payload.hospitalName = hospitalName;
+        payload.hospitalContactNumber = hospitalContactNumber;
+      }
+
+      await api.put(`/admin/users/${user._id}`, payload);
 
       setMessage("User updated successfully.");
       loadAdminData();
@@ -136,7 +163,7 @@ const AdminPanel = () => {
 
   const handleDeleteUser = async (id) => {
     const confirmDelete = window.confirm(
-      "Are you sure you want to delete this user?",
+      "Are you sure you want to delete this user?"
     );
 
     if (!confirmDelete) return;
@@ -166,12 +193,138 @@ const AdminPanel = () => {
       setMessage(
         !donor.isVerifiedDonor
           ? "Donor verified successfully."
-          : "Donor verification removed.",
+          : "Donor verification removed."
       );
 
       loadAdminData();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to verify donor.");
+    }
+  };
+
+  const handleViewPatientDocument = async (patient) => {
+    clearAlerts();
+
+    try {
+      const { data } = await api.get(`/admin/patients/${patient._id}/document`);
+
+      const documentData = data.document;
+
+      if (!documentData?.fileData) {
+        setError("Patient proof document not found.");
+        return;
+      }
+
+      const documentWindow = window.open("", "_blank");
+
+      if (!documentWindow) {
+        setError("Popup blocked. Please allow popups to view document.");
+        return;
+      }
+
+      const isPdf = documentData.fileType === "application/pdf";
+
+      documentWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${documentData.fileName || "Patient Proof Document"}</title>
+            <style>
+              body {
+                margin: 0;
+                font-family: Arial, sans-serif;
+                background: #f8fafc;
+              }
+
+              .topbar {
+                padding: 14px 18px;
+                background: #e11d48;
+                color: white;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+              }
+
+              .topbar h2 {
+                margin: 0;
+                font-size: 18px;
+              }
+
+              .topbar a {
+                color: white;
+                font-weight: bold;
+              }
+
+              iframe {
+                width: 100%;
+                height: calc(100vh - 58px);
+                border: none;
+                background: white;
+              }
+
+              .image-wrap {
+                padding: 20px;
+                text-align: center;
+              }
+
+              .image-wrap img {
+                max-width: 100%;
+                max-height: calc(100vh - 100px);
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+                background: white;
+              }
+            </style>
+          </head>
+
+          <body>
+            <div class="topbar">
+              <h2>${data.patientName || "Patient"} - Proof Document</h2>
+              <a href="${documentData.fileData}" download="${
+        documentData.fileName || "patient-proof"
+      }">Download</a>
+            </div>
+
+            ${
+              isPdf
+                ? `<iframe src="${documentData.fileData}"></iframe>`
+                : `<div class="image-wrap"><img src="${documentData.fileData}" alt="Patient proof document" /></div>`
+            }
+          </body>
+        </html>
+      `);
+
+      documentWindow.document.close();
+
+      setMessage("Patient document opened.");
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Failed to open patient document."
+      );
+    }
+  };
+
+  const handleVerifyPatient = async (patient) => {
+    clearAlerts();
+
+    try {
+      await api.patch(`/admin/patients/${patient._id}/verify`, {
+        isVerifiedPatient: !patient.isVerifiedPatient,
+        patientVerificationNote: !patient.isVerifiedPatient
+          ? "Patient verified after checking proof document and hospital contact."
+          : "Patient verification removed by admin.",
+      });
+
+      setMessage(
+        !patient.isVerifiedPatient
+          ? "Patient verified successfully."
+          : "Patient verification removed."
+      );
+
+      loadAdminData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to verify patient.");
     }
   };
 
@@ -186,13 +339,13 @@ const AdminPanel = () => {
       setMessage(
         !request.isHospitalVerified
           ? "Hospital request verified."
-          : "Hospital verification removed.",
+          : "Hospital verification removed."
       );
 
       loadAdminData();
     } catch (err) {
       setError(
-        err.response?.data?.message || "Failed to verify hospital request.",
+        err.response?.data?.message || "Failed to verify hospital request."
       );
     }
   };
@@ -216,14 +369,14 @@ const AdminPanel = () => {
     try {
       const { data } = await api.patch(
         `/admin/requests/${requestId}/donor-response/${donorId}`,
-        { status },
+        { status }
       );
 
       setMessage(data.message || "Donor response updated.");
       loadAdminData();
     } catch (err) {
       setError(
-        err.response?.data?.message || "Failed to update donor response.",
+        err.response?.data?.message || "Failed to update donor response."
       );
     }
   };
@@ -261,7 +414,7 @@ const AdminPanel = () => {
   const handleQueryStatus = async (query) => {
     const status = prompt(
       "Enter status: New, In Progress, Resolved",
-      query.status,
+      query.status
     );
 
     if (!status) return;
@@ -347,7 +500,9 @@ const AdminPanel = () => {
       <div className="container dashboard-header">
         <div>
           <span className="eyebrow">Admin Panel</span>
+
           <h1>Manage Blood Bank System</h1>
+
           <p>
             Admin can manage donors, patients, blood requests, verification,
             camps and support queries.
@@ -488,6 +643,31 @@ const AdminPanel = () => {
                 value={form.address}
                 onChange={handleChange}
               />
+
+              {form.role === "patient" && (
+                <>
+                  <input
+                    name="hospitalName"
+                    placeholder="Hospital name"
+                    value={form.hospitalName}
+                    onChange={handleChange}
+                  />
+
+                  <input
+                    name="hospitalContactNumber"
+                    placeholder="Hospital contact number"
+                    value={form.hospitalContactNumber}
+                    onChange={handleChange}
+                  />
+
+                  <input
+                    name="emergencyContact"
+                    placeholder="Emergency contact"
+                    value={form.emergencyContact}
+                    onChange={handleChange}
+                  />
+                </>
+              )}
             </div>
 
             <button type="submit" className="btn btn-primary">
@@ -507,7 +687,14 @@ const AdminPanel = () => {
                     <th>Blood</th>
                     <th>City</th>
                     <th>Phone</th>
-                    {activeTab === "donors" && <th>Verified</th>}
+
+                    {activeTab === "patients" && <th>Hospital</th>}
+                    {activeTab === "patients" && <th>Hospital Contact</th>}
+
+                    {activeTab === "donors" && <th>Donor Verified</th>}
+                    {activeTab === "patients" && <th>Patient Verified</th>}
+                    {activeTab === "patients" && <th>Document</th>}
+
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -521,6 +708,14 @@ const AdminPanel = () => {
                       <td>{item.city}</td>
                       <td>{item.phone}</td>
 
+                      {activeTab === "patients" && (
+                        <td>{item.hospitalName || "-"}</td>
+                      )}
+
+                      {activeTab === "patients" && (
+                        <td>{item.hospitalContactNumber || "-"}</td>
+                      )}
+
                       {activeTab === "donors" && (
                         <td>
                           {item.isVerifiedDonor ? (
@@ -529,6 +724,36 @@ const AdminPanel = () => {
                             </span>
                           ) : (
                             <span className="admin-badge pending">Pending</span>
+                          )}
+                        </td>
+                      )}
+
+                      {activeTab === "patients" && (
+                        <td>
+                          {item.isVerifiedPatient ? (
+                            <span className="admin-badge verified">
+                              Verified
+                            </span>
+                          ) : (
+                            <span className="admin-badge pending">Pending</span>
+                          )}
+                        </td>
+                      )}
+
+                      {activeTab === "patients" && (
+                        <td>
+                          {item.patientProofDocument?.fileName ? (
+                            <button
+                              type="button"
+                              className="small-btn edit"
+                              onClick={() => handleViewPatientDocument(item)}
+                            >
+                              View Document
+                            </button>
+                          ) : (
+                            <span className="admin-badge pending">
+                              No Document
+                            </span>
                           )}
                         </td>
                       )}
@@ -553,6 +778,20 @@ const AdminPanel = () => {
                             onClick={() => handleVerifyDonor(item)}
                           >
                             {item.isVerifiedDonor ? "Unverify" : "Verify"}
+                          </button>
+                        )}
+
+                        {activeTab === "patients" && (
+                          <button
+                            type="button"
+                            className={
+                              item.isVerifiedPatient
+                                ? "small-btn warning"
+                                : "small-btn success"
+                            }
+                            onClick={() => handleVerifyPatient(item)}
+                          >
+                            {item.isVerifiedPatient ? "Unverify" : "Verify"}
                           </button>
                         )}
 
@@ -658,6 +897,7 @@ const AdminPanel = () => {
                                   <strong>
                                     {donor?.name || "Matched Donor"}
                                   </strong>
+
                                   <span>
                                     {donor?.bloodGroup || request.bloodGroup} •{" "}
                                     {donor?.city || request.city} •{" "}
@@ -677,7 +917,7 @@ const AdminPanel = () => {
                                       handleAdminDonorResponse(
                                         request._id,
                                         donorId,
-                                        "accepted",
+                                        "accepted"
                                       )
                                     }
                                   >
@@ -695,7 +935,7 @@ const AdminPanel = () => {
                                       handleAdminDonorResponse(
                                         request._id,
                                         donorId,
-                                        "declined",
+                                        "declined"
                                       )
                                     }
                                   >
@@ -713,7 +953,7 @@ const AdminPanel = () => {
                                       handleAdminDonorResponse(
                                         request._id,
                                         donorId,
-                                        "pending",
+                                        "pending"
                                       )
                                     }
                                   >
@@ -868,16 +1108,20 @@ const AdminPanel = () => {
                     <tr key={camp._id}>
                       <td>{camp.title}</td>
                       <td>{camp.city}</td>
+
                       <td>
                         {camp.date
                           ? new Date(camp.date).toLocaleDateString()
                           : "-"}
                       </td>
+
                       <td>
                         {camp.registeredDonors?.length || 0}/
                         {camp.maxSlots || 50}
                       </td>
+
                       <td>{camp.isActive ? "Active" : "Inactive"}</td>
+
                       <td>
                         <button
                           type="button"
@@ -931,6 +1175,7 @@ const AdminPanel = () => {
                     <td>{query.subject}</td>
                     <td>{query.message}</td>
                     <td>{query.status}</td>
+
                     <td>
                       <button
                         type="button"

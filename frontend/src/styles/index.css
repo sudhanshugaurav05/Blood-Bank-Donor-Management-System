@@ -2579,3 +2579,189 @@ video {
   opacity: 0.45;
   cursor: not-allowed;
 }
+.required-star {
+  color: #e11d48;
+  font-weight: 900;
+}
+
+.label-title {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.password-field {
+  position: relative;
+  width: 100%;
+}
+
+.password-field input {
+  width: 100%;
+  padding-right: 46px !important;
+}
+
+.password-eye {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-eye:hover {
+  color: #e11d48;
+}
+
+.forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+  margin-bottom: 14px;
+}
+
+.forgot-row a {
+  color: #e11d48;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.forgot-row a:hover {
+  text-decoration: underline;
+}
+
+/* Red star for old required labels also */
+.auth-form label:has(input[required])::after,
+.auth-form label:has(select[required])::after,
+.profile-form label:has(input[required])::after,
+.profile-form label:has(select[required])::after,
+.admin-add-form label:has(input[required])::after,
+.admin-add-form label:has(select[required])::after {
+  content: "";
+}
+
+.required-star {
+  color: #e11d48;
+  font-weight: 900;
+}
+
+.required-note {
+  margin: -4px 0 16px;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.label-title {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.password-field {
+  position: relative;
+  width: 100%;
+}
+
+.password-field input {
+  width: 100%;
+  padding-right: 46px !important;
+}
+
+.password-eye {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-eye:hover {
+  color: #e11d48;
+}
+
+.forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+  margin-bottom: 14px;
+}
+
+.forgot-row a {
+  color: #e11d48;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.forgot-row a:hover {
+  text-decoration: underline;
+}
+
+.patient-proof-card {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 20px;
+  background: #fff7f9;
+  border: 1px solid #ffd6df;
+}
+
+.patient-proof-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--dark);
+}
+
+.patient-proof-card p {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.file-upload-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border: 1px dashed #ef4444;
+  border-radius: 14px;
+  background: #fff7f9;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.file-upload-box input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-upload-box span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #e11d48;
+  font-weight: 900;
+}
+
+.selected-file-name {
+  display: block;
+  margin-top: 8px;
+  color: #166534;
+  font-weight: 900;
+}
